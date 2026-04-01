@@ -47,7 +47,6 @@ export default function App() {
   const [actionSuccess, setActionSuccess] = useState("");
   const [themePreference, setThemePreference] = useState(() => getStoredThemePreference());
   const [systemTheme, setSystemTheme] = useState(() => getSystemTheme());
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -172,19 +171,24 @@ export default function App() {
   const formatDate = (value) => formatDisplayDate(value, locale);
   const formatMonth = (monthKey) => formatMonthLabel(monthKey, locale);
   const getCategoryDisplay = (category) => getCategoryLabel(language, category);
+  const last30DaysStart = useMemo(() => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 29);
+    return start.toISOString().slice(0, 10);
+  }, []);
 
-  const selectedMonthTransactions = useMemo(() => deferredTransactions.filter((transaction) => transaction.date.startsWith(selectedMonth)), [deferredTransactions, selectedMonth]);
+  const last30DayTransactions = useMemo(() => deferredTransactions.filter((transaction) => transaction.date >= last30DaysStart), [deferredTransactions, last30DaysStart]);
 
   const filteredTransactions = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     const nextItems = deferredTransactions.filter((transaction) => {
       const matchesType = typeFilter === "all" ? true : transaction.type === typeFilter;
-      const matchesMonth = selectedMonth ? transaction.date.startsWith(selectedMonth) : true;
       const matchesFrom = fromDate ? transaction.date >= fromDate : true;
       const matchesTo = toDate ? transaction.date <= toDate : true;
       const translatedCategory = getCategoryDisplay(transaction.category).toLowerCase();
       const matchesSearch = query ? `${transaction.description} ${transaction.category} ${translatedCategory} ${transaction.amount}`.toLowerCase().includes(query) : true;
-      return matchesType && matchesMonth && matchesFrom && matchesTo && matchesSearch;
+      return matchesType && matchesFrom && matchesTo && matchesSearch;
     });
 
     return nextItems.sort((a, b) => {
@@ -193,21 +197,21 @@ export default function App() {
       if (sortBy === "amount_asc") return a.amount - b.amount;
       return new Date(b.date) - new Date(a.date);
     });
-  }, [deferredTransactions, fromDate, searchTerm, selectedMonth, sortBy, toDate, typeFilter, language]);
+  }, [deferredTransactions, fromDate, searchTerm, sortBy, toDate, typeFilter, language]);
 
   const summary = useMemo(() => {
-    const income = sumAmounts(selectedMonthTransactions.filter((item) => item.type === "income"));
-    const expense = sumAmounts(selectedMonthTransactions.filter((item) => item.type === "expense"));
+    const income = sumAmounts(last30DayTransactions.filter((item) => item.type === "income"));
+    const expense = sumAmounts(last30DayTransactions.filter((item) => item.type === "expense"));
     const net = income - expense;
     const budgetTotal = Object.values(financeState.budgets).reduce((sum, value) => sum + value, 0);
     const budgetUsedPercent = budgetTotal > 0 ? Math.min((expense / budgetTotal) * 100, 999) : 0;
     return { income, expense, net, budgetUsedPercent, budgetTotal };
-  }, [financeState.budgets, selectedMonthTransactions]);
+  }, [financeState.budgets, last30DayTransactions]);
 
-  const categorySpending = useMemo(() => selectedMonthTransactions.filter((item) => item.type === "expense").reduce((acc, transaction) => {
+  const categorySpending = useMemo(() => last30DayTransactions.filter((item) => item.type === "expense").reduce((acc, transaction) => {
     acc[transaction.category] = (acc[transaction.category] ?? 0) + transaction.amount;
     return acc;
-  }, {}), [selectedMonthTransactions]);
+  }, {}), [last30DayTransactions]);
 
   const categoryEntries = useMemo(() => Object.entries(categorySpending).sort((a, b) => b[1] - a[1]), [categorySpending]);
   const budgetEntries = useMemo(() => Object.entries(financeState.budgets).sort((a, b) => a[0].localeCompare(b[0], locale)), [financeState.budgets, locale]);
@@ -356,7 +360,7 @@ export default function App() {
 
   const handleExportJson = () => {
     const payload = JSON.stringify({ exportedAt: new Date().toISOString(), transactions: financeState.transactions, budgets: financeState.budgets }, null, 2);
-    downloadFile(`finance-flow-${selectedMonth}.json`, payload, "application/json");
+    downloadFile(`finance-flow-${getTodayValue()}.json`, payload, "application/json");
     setActionSuccess(copy.jsonExported);
   };
 
@@ -364,7 +368,7 @@ export default function App() {
     const header = ["date", "type", "category", "description", "amount"];
     const rows = filteredTransactions.map((item) => [item.date, item.type, item.category, item.description ?? "", item.amount]);
     const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
-    downloadFile(`finance-flow-${selectedMonth}.csv`, csv, "text/csv;charset=utf-8;");
+    downloadFile(`finance-flow-${getTodayValue()}.csv`, csv, "text/csv;charset=utf-8;");
     setActionSuccess(copy.csvExported);
   };
 
@@ -426,7 +430,7 @@ export default function App() {
         <div className="hero-side">
           {themeSwitcher}
           {languageSwitcher}
-          <div className="hero-stat"><span>{formatMonth(selectedMonth)}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
+          <div className="hero-stat"><span>{language === "th" ? "???????? 30 ???" : "Last 30 days"}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
           <button className="logout-btn" type="button" onClick={handleLogout}>{copy.logout}</button>
         </div>
       </header>
@@ -446,7 +450,6 @@ export default function App() {
         <section className="panel full-span tools-panel">
           <div className="panel-head"><h2>{copy.toolsTitle}</h2><p>{copy.toolsCopy}</p></div>
           <div className="tools-grid">
-            <label><span>{copy.month}</span><input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} /></label>
             <label><span>{copy.fromDate}</span><input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
             <label><span>{copy.toDate}</span><input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
             <label><span>{copy.type}</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">{copy.all}</option><option value="income">{copy.income}</option><option value="expense">{copy.expense}</option></select></label>
@@ -454,7 +457,7 @@ export default function App() {
             <label><span>{copy.sort}</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </div>
           <div className="tools-actions">
-            <button className="close-btn" type="button" onClick={() => { setSelectedMonth(new Date().toISOString().slice(0, 7)); setFromDate(""); setToDate(""); setTypeFilter("all"); setSearchTerm(""); setSortBy("date_desc"); }}>{copy.clearFilters}</button>
+            <button className="close-btn" type="button" onClick={() => { setFromDate(""); setToDate(""); setTypeFilter("all"); setSearchTerm(""); setSortBy("date_desc"); }}>{copy.clearFilters}</button>
             <button className="close-btn" type="button" onClick={handleExportJson}>{copy.exportJson}</button>
             <button className="close-btn" type="button" onClick={handleExportCsv}>{copy.exportCsv}</button>
             <button className="close-btn" type="button" onClick={() => importInputRef.current?.click()}>{copy.importJson}</button>
