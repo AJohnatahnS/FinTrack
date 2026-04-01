@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { sampleData } from "../data/financeData";
+import { normalizeCategoryValue } from "../i18n";
 import { supabase } from "../lib/supabaseClient";
 
 function mapTransactions(rows) {
@@ -8,14 +9,14 @@ function mapTransactions(rows) {
     type: row.type,
     description: row.description ?? "",
     amount: Number(row.amount),
-    category: row.category,
+    category: normalizeCategoryValue(row.category),
     date: row.date,
   }));
 }
 
 function mapBudgets(rows) {
   return rows.reduce((acc, row) => {
-    acc[row.category] = Number(row.amount);
+    acc[normalizeCategoryValue(row.category)] = Number(row.amount);
     return acc;
   }, {});
 }
@@ -92,7 +93,7 @@ export function useSupabaseFinance(user) {
       type: transaction.type,
       description: transaction.description,
       amount: transaction.amount,
-      category: transaction.category,
+      category: normalizeCategoryValue(transaction.category),
       date: transaction.date,
     };
 
@@ -128,7 +129,7 @@ export function useSupabaseFinance(user) {
       type: transaction.type,
       description: transaction.description,
       amount: transaction.amount,
-      category: transaction.category,
+      category: normalizeCategoryValue(transaction.category),
       date: transaction.date,
     };
 
@@ -189,7 +190,7 @@ export function useSupabaseFinance(user) {
 
     const payload = {
       user_id: user.id,
-      category,
+      category: normalizeCategoryValue(category),
       amount,
       updated_at: new Date().toISOString(),
     };
@@ -238,7 +239,7 @@ export function useSupabaseFinance(user) {
         type: transaction.type,
         description: transaction.description ?? "",
         amount: Number(transaction.amount),
-        category: transaction.category,
+        category: normalizeCategoryValue(transaction.category),
         date: transaction.date,
       }));
 
@@ -253,7 +254,7 @@ export function useSupabaseFinance(user) {
     if (budgetEntries.length > 0) {
       const budgetPayload = budgetEntries.map(([category, amount]) => ({
         user_id: user.id,
-        category,
+        category: normalizeCategoryValue(category),
         amount: Number(amount),
         updated_at: new Date().toISOString(),
       }));

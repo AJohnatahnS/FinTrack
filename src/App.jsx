@@ -6,7 +6,7 @@ import { SummaryCard } from "./components/SummaryCard";
 import { TransactionList } from "./components/TransactionList";
 import { categories } from "./data/financeData";
 import { useSupabaseFinance } from "./hooks/useSupabaseFinance";
-import { languageOptions, translations, quickFillPresets, getCategoryLabel } from "./i18n";
+import { languageOptions, translations, getCategoryLabel, getDescriptionSuggestions } from "./i18n";
 import { supabase, hasSupabaseConfig } from "./lib/supabaseClient";
 import { formatCurrency, formatDisplayDate, getTodayValue } from "./utils/formatters";
 
@@ -58,7 +58,7 @@ export default function App() {
   const copy = translations[language];
   const locale = language === "th" ? "th-TH" : "en-US";
   const resolvedTheme = themePreference === "system" ? systemTheme : themePreference;
-  const quickPresetSet = quickFillPresets[language];
+  const descriptionSuggestions = getDescriptionSuggestions(language, transactionForm.type, transactionForm.category);
   const sortOptions = [
     { value: "date_desc", label: copy.newestDate },
     { value: "date_asc", label: copy.oldestDate },
@@ -158,11 +158,9 @@ export default function App() {
   }, [language]);
   useEffect(() => {
     setTransactionForm((current) => {
-      const nextCategory = categories[current.type][0];
-      const allPresets = [...quickFillPresets.en[current.type], ...quickFillPresets.th[current.type]];
-      const nextDescription = allPresets.includes(current.description) ? "" : current.description;
-      if (current.category === nextCategory && current.description === nextDescription) return current;
-      return { ...current, category: nextCategory, description: nextDescription };
+      const nextCategories = categories[current.type];
+      if (nextCategories.includes(current.category)) return current;
+      return { ...current, category: nextCategories[0] };
     });
   }, [transactionForm.type]);
 
@@ -468,7 +466,7 @@ export default function App() {
         <section className="panel chart-panel"><div className="panel-head"><h2>{copy.chartTitle}</h2><p>{copy.chartCopy}</p></div>{categoryEntries.length === 0 ? <EmptyState message={copy.emptyState} /> : <ChartList entries={categoryEntries} formatMoney={formatMoney} getCategoryLabel={getCategoryDisplay} />}</section>
 
         <section className="panel budget-panel">
-          <div className="panel-head"><h2>{copy.budgetTitle}</h2><p>{editingBudgetCategory ? `${copy.editing} ${getCategoryDisplay(editingBudgetCategory)}` : copy.budgetCopy}</p></div>
+          <div className="panel-head panel-head-row"><div><h2>{copy.budgetTitle}</h2><p>{editingBudgetCategory ? `${copy.editing} ${getCategoryDisplay(editingBudgetCategory)}` : copy.budgetCopy}</p></div><div className="panel-head-metric"><span>{copy.budgetTotalLabel}</span><strong>{formatMoney(summary.budgetTotal)}</strong></div></div>
           <form className="split budget-form" onSubmit={handleBudgetSubmit}>
             <label><span>{copy.category}</span><select value={budgetForm.category} onChange={(event) => setBudgetForm((current) => ({ ...current, category: event.target.value }))}>{categories.expense.map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label>
             <label><span>{copy.budgetAmount}</span><input type="number" min="0" step="0.01" placeholder="0.00" value={budgetForm.amount} onChange={(event) => setBudgetForm((current) => ({ ...current, amount: event.target.value }))} required /></label>
@@ -491,7 +489,7 @@ export default function App() {
         <button className="fab-entry fab-entry-expense" type="button" onClick={() => openEntryDrawer("expense")}><span className="fab-plus">+</span><span className="fab-label">{copy.fabExpense}</span></button>
       </div>
 
-      {isEntryOpen ? <div className="entry-overlay" onClick={closeEntryDrawer}><section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" aria-hidden="true" /><div className="panel-head entry-head"><div><h2>{editingTransactionId ? copy.editTransactionTitle : transactionForm.type === "income" ? copy.addIncomeTitle : copy.addExpenseTitle}</h2><p>{copy.entryCopy}</p></div><button className="close-btn" type="button" onClick={closeEntryDrawer}>{copy.close}</button></div><form className="stack" onSubmit={handleTransactionSubmit}><label><span>{copy.category}</span><select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>{categories[transactionForm.type].map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label><label><span>{copy.description}</span><input type="text" placeholder={transactionForm.type === "expense" ? copy.expensePlaceholder : copy.incomePlaceholder} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} /></label><div className="quick-fill-row">{quickPresetSet[transactionForm.type].map((preset) => <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>)}</div><div className="split"><label><span>{copy.amount}</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required /><small className="field-hint">{Number(transactionForm.amount) > 0 ? formatMoney(Number(transactionForm.amount)) : copy.amountHint}</small></label><label><span>{copy.date}</span><DateField value={transactionForm.date} onChange={(value) => setTransactionForm((current) => ({ ...current, date: value }))} placeholder={copy.datePlaceholder} pickDateLabel={copy.pickDate} clearDateLabel={copy.clearDate} required /></label></div><button className="primary-btn" type="submit">{editingTransactionId ? copy.updateTransaction : copy.saveTransaction}</button></form></section></div> : null}
+      {isEntryOpen ? <div className="entry-overlay" onClick={closeEntryDrawer}><section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" aria-hidden="true" /><div className="panel-head entry-head"><div><h2>{editingTransactionId ? copy.editTransactionTitle : transactionForm.type === "income" ? copy.addIncomeTitle : copy.addExpenseTitle}</h2><p>{copy.entryCopy}</p></div><button className="close-btn" type="button" onClick={closeEntryDrawer}>{copy.close}</button></div><form className="stack" onSubmit={handleTransactionSubmit}><label><span>{copy.category}</span><select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>{categories[transactionForm.type].map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label><label><span>{copy.description}</span><input type="text" placeholder={transactionForm.type === "expense" ? copy.expensePlaceholder : copy.incomePlaceholder} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} /></label><div className="quick-fill-row">{descriptionSuggestions.map((preset) => <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>)}</div><div className="split"><label><span>{copy.amount}</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required /><small className="field-hint">{Number(transactionForm.amount) > 0 ? formatMoney(Number(transactionForm.amount)) : copy.amountHint}</small></label><label><span>{copy.date}</span><DateField value={transactionForm.date} onChange={(value) => setTransactionForm((current) => ({ ...current, date: value }))} placeholder={copy.datePlaceholder} pickDateLabel={copy.pickDate} clearDateLabel={copy.clearDate} required /></label></div><button className="primary-btn" type="submit">{editingTransactionId ? copy.updateTransaction : copy.saveTransaction}</button></form></section></div> : null}
     </div>
   );
 }

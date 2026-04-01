@@ -135,7 +135,7 @@ canvas {
 
 .lock-form {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin-top: 20px;
 }
 
@@ -161,6 +161,7 @@ canvas {
 .auth-link-row {
   display: flex;
   justify-content: center;
+  margin-top: 4px;
 }
 
 .auth-link-btn {
@@ -206,7 +207,7 @@ canvas {
   display: inline-flex;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .lock-card .theme-switcher {
@@ -369,8 +370,31 @@ label span {
 
 .panel-head {
   display: grid;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.panel-head-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+
+.panel-head-metric {
+  display: grid;
   gap: 4px;
-  margin-bottom: 18px;
+  justify-items: end;
+  text-align: right;
+}
+
+.panel-head-metric span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.panel-head-metric strong {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.1rem;
 }
 
 .entry-head {
@@ -385,7 +409,7 @@ label span {
 .stack,
 .budget-form {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .tools-grid {
@@ -397,8 +421,8 @@ label span {
 .tools-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .hidden-input {
@@ -418,13 +442,14 @@ label span {
 
 label {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 input,
 select {
   width: 100%;
   min-width: 0;
+  min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 14px 16px;
@@ -487,7 +512,7 @@ button:disabled {
 .ghost-btn,
 .logout-btn,
 .close-btn {
-  min-height: 48px;
+  min-height: 50px;
 }
 
 .primary-btn {
@@ -617,7 +642,7 @@ button:disabled {
   background: transparent;
   color: var(--danger);
   border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 
 .empty-state {
@@ -917,7 +942,8 @@ button:disabled {
   .budget-footer,
   .sync-panel,
   .report-item,
-  .report-metrics {
+  .report-metrics,
+  .panel-head-row {
     align-items: flex-start;
   }
 
@@ -927,9 +953,15 @@ button:disabled {
   .entry-head,
   .budget-footer,
   .sync-panel,
-  .report-item {
+  .report-item,
+  .panel-head-row {
     flex-direction: column;
     display: flex;
+  }
+
+  .panel-head-metric {
+    justify-items: start;
+    text-align: left;
   }
 
   .sync-panel span {
@@ -1068,7 +1100,7 @@ button:disabled {
 
 .transaction-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-left: auto;
 }
 

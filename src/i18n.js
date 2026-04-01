@@ -70,6 +70,7 @@ export const translations = {
     chartCopy: "See which category takes the most money this month.",
     budgetTitle: "Budget by category",
     budgetCopy: "Set monthly limits for your expense categories.",
+    budgetTotalLabel: "Total budget",
     editing: "Editing",
     category: "Category",
     budgetAmount: "Budget amount",
@@ -205,6 +206,7 @@ export const translations = {
     chartCopy: "\u0e14\u0e39\u0e27\u0e48\u0e32\u0e2b\u0e21\u0e27\u0e14\u0e44\u0e2b\u0e19\u0e43\u0e0a\u0e49\u0e40\u0e07\u0e34\u0e19\u0e21\u0e32\u0e01\u0e17\u0e35\u0e48\u0e2a\u0e38\u0e14\u0e43\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e19\u0e35\u0e49",
     budgetTitle: "\u0e07\u0e1a\u0e1b\u0e23\u0e30\u0e21\u0e32\u0e13\u0e15\u0e32\u0e21\u0e2b\u0e21\u0e27\u0e14",
     budgetCopy: "\u0e15\u0e31\u0e49\u0e07\u0e07\u0e1a\u0e23\u0e32\u0e22\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e2b\u0e21\u0e27\u0e14\u0e23\u0e32\u0e22\u0e08\u0e48\u0e32\u0e22\u0e02\u0e2d\u0e07\u0e04\u0e38\u0e13",
+    budgetTotalLabel: "\u0e07\u0e1a\u0e23\u0e27\u0e21",
     editing: "\u0e01\u0e33\u0e25\u0e31\u0e07\u0e41\u0e01\u0e49\u0e44\u0e02",
     category: "\u0e2b\u0e21\u0e27\u0e14\u0e2b\u0e21\u0e39\u0e48",
     budgetAmount: "\u0e08\u0e33\u0e19\u0e27\u0e19\u0e07\u0e1a",
@@ -276,36 +278,108 @@ export const languageOptions = [
   { value: "en", label: "EN" },
 ];
 
+export const legacyCategoryMap = {
+  "\u0e2d\u0e32\u0e2b\u0e32\u0e23": "food",
+  "\u0e40\u0e14\u0e34\u0e19\u0e17\u0e32\u0e07": "travel",
+  "\u0e17\u0e35\u0e48\u0e2d\u0e22\u0e39\u0e48\u0e2d\u0e32\u0e28\u0e31\u0e22": "housing",
+  "\u0e1a\u0e34\u0e25": "bills",
+  "\u0e0a\u0e49\u0e2d\u0e1b\u0e1b\u0e34\u0e49\u0e07": "shopping",
+  "\u0e2a\u0e38\u0e02\u0e20\u0e32\u0e1e": "health",
+  "\u0e1a\u0e31\u0e19\u0e40\u0e17\u0e34\u0e07": "entertainment",
+  "\u0e2d\u0e37\u0e48\u0e19\u0e46": "other",
+  "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19": "salary",
+  "\u0e42\u0e1a\u0e19\u0e31\u0e2a": "bonus",
+  "\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c": "freelance",
+  "\u0e02\u0e32\u0e22\u0e02\u0e2d\u0e07": "sales",
+  "\u0e14\u0e2d\u0e01\u0e40\u0e1a\u0e35\u0e49\u0e22": "interest"
+};
+
 export const categoryLabels = {
   en: {
-    "\u0e2d\u0e32\u0e2b\u0e32\u0e23": "Food",
-    "\u0e40\u0e14\u0e34\u0e19\u0e17\u0e32\u0e07": "Travel",
-    "\u0e17\u0e35\u0e48\u0e2d\u0e22\u0e39\u0e48\u0e2d\u0e32\u0e28\u0e31\u0e22": "Housing",
-    "\u0e1a\u0e34\u0e25": "Bills",
-    "\u0e0a\u0e49\u0e2d\u0e1b\u0e1b\u0e34\u0e49\u0e07": "Shopping",
-    "\u0e2a\u0e38\u0e02\u0e20\u0e32\u0e1e": "Health",
-    "\u0e1a\u0e31\u0e19\u0e40\u0e17\u0e34\u0e07": "Entertainment",
-    "\u0e2d\u0e37\u0e48\u0e19\u0e46": "Other",
-    "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19": "Salary",
-    "\u0e42\u0e1a\u0e19\u0e31\u0e2a": "Bonus",
-    "\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c": "Freelance",
-    "\u0e02\u0e32\u0e22\u0e02\u0e2d\u0e07": "Sales",
-    "\u0e14\u0e2d\u0e01\u0e40\u0e1a\u0e35\u0e49\u0e22": "Interest"
+    food: "Food",
+    travel: "Travel",
+    housing: "Housing",
+    bills: "Bills",
+    shopping: "Shopping",
+    health: "Health",
+    entertainment: "Entertainment",
+    other: "Other",
+    salary: "Salary",
+    bonus: "Bonus",
+    freelance: "Freelance",
+    sales: "Sales",
+    interest: "Interest"
   },
-  th: {}
+  th: {
+    food: "\u0e2d\u0e32\u0e2b\u0e32\u0e23",
+    travel: "\u0e40\u0e14\u0e34\u0e19\u0e17\u0e32\u0e07",
+    housing: "\u0e17\u0e35\u0e48\u0e2d\u0e22\u0e39\u0e48\u0e2d\u0e32\u0e28\u0e31\u0e22",
+    bills: "\u0e1a\u0e34\u0e25",
+    shopping: "\u0e0a\u0e49\u0e2d\u0e1b\u0e1b\u0e34\u0e49\u0e07",
+    health: "\u0e2a\u0e38\u0e02\u0e20\u0e32\u0e1e",
+    entertainment: "\u0e1a\u0e31\u0e19\u0e40\u0e17\u0e34\u0e07",
+    other: "\u0e2d\u0e37\u0e48\u0e19\u0e46",
+    salary: "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19",
+    bonus: "\u0e42\u0e1a\u0e19\u0e31\u0e2a",
+    freelance: "\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c",
+    sales: "\u0e02\u0e32\u0e22\u0e02\u0e2d\u0e07",
+    interest: "\u0e14\u0e2d\u0e01\u0e40\u0e1a\u0e35\u0e49\u0e22"
+  }
 };
 
 export const quickFillPresets = {
   en: {
-    expense: ["Food", "Fuel", "Travel", "Coffee", "Bills", "Supplies"],
-    income: ["Salary", "Wage", "Bonus", "Freelance", "Sale", "Other income"]
+    expense: {
+      food: ["Lunch", "Dinner", "Coffee", "Snacks", "Supermarket"],
+      travel: ["Fuel", "BTS", "MRT", "Taxi", "Parking"],
+      housing: ["Rent", "Repairs", "Furniture", "Maintenance"],
+      bills: ["Electricity", "Water", "Internet", "Phone bill"],
+      shopping: ["Clothes", "Shoes", "Home supplies", "Gadgets"],
+      health: ["Medicine", "Clinic", "Fitness", "Insurance"],
+      entertainment: ["Movies", "Games", "Streaming", "Concert"],
+      other: ["Gift", "Donation", "Misc", "Service fee"]
+    },
+    income: {
+      salary: ["Salary", "Advance salary", "Allowance"],
+      bonus: ["Bonus", "Performance bonus", "Commission"],
+      freelance: ["Freelance job", "Consulting", "Project fee"],
+      sales: ["Product sale", "Online order", "Marketplace payout"],
+      interest: ["Bank interest", "Dividend", "Investment return"],
+      other: ["Refund", "Cashback", "Other income"]
+    }
   },
   th: {
-    expense: ["\u0e04\u0e48\u0e32\u0e2d\u0e32\u0e2b\u0e32\u0e23", "\u0e04\u0e48\u0e32\u0e19\u0e49\u0e33\u0e21\u0e31\u0e19", "\u0e04\u0e48\u0e32\u0e40\u0e14\u0e34\u0e19\u0e17\u0e32\u0e07", "\u0e04\u0e48\u0e32\u0e01\u0e32\u0e41\u0e1f", "\u0e04\u0e48\u0e32\u0e1a\u0e34\u0e25", "\u0e04\u0e48\u0e32\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49"],
-    income: ["\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19", "\u0e04\u0e48\u0e32\u0e08\u0e49\u0e32\u0e07", "\u0e42\u0e1a\u0e19\u0e31\u0e2a", "\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c", "\u0e02\u0e32\u0e22\u0e02\u0e2d\u0e07", "\u0e23\u0e32\u0e22\u0e23\u0e31\u0e1a\u0e1e\u0e34\u0e40\u0e28\u0e29"]
+    expense: {
+      food: ["\u0e04\u0e48\u0e32\u0e2d\u0e32\u0e2b\u0e32\u0e23", "\u0e04\u0e48\u0e32\u0e01\u0e32\u0e41\u0e1f", "\u0e0b\u0e37\u0e49\u0e2d\u0e02\u0e2d\u0e07\u0e01\u0e34\u0e19", "\u0e0b\u0e39\u0e40\u0e1b\u0e2d\u0e23\u0e4c\u0e21\u0e32\u0e23\u0e4c\u0e40\u0e01\u0e47\u0e15"],
+      travel: ["\u0e04\u0e48\u0e32\u0e19\u0e49\u0e33\u0e21\u0e31\u0e19", "BTS", "MRT", "\u0e04\u0e48\u0e32\u0e41\u0e17\u0e47\u0e01\u0e0b\u0e35\u0e48", "\u0e04\u0e48\u0e32\u0e17\u0e35\u0e48\u0e08\u0e2d\u0e14"],
+      housing: ["\u0e04\u0e48\u0e32\u0e40\u0e0a\u0e48\u0e32", "\u0e04\u0e48\u0e32\u0e0b\u0e48\u0e2d\u0e21\u0e1a\u0e49\u0e32\u0e19", "\u0e04\u0e48\u0e32\u0e40\u0e1f\u0e2d\u0e23\u0e4c\u0e19\u0e34\u0e40\u0e08\u0e2d\u0e23\u0e4c"],
+      bills: ["\u0e04\u0e48\u0e32\u0e44\u0e1f", "\u0e04\u0e48\u0e32\u0e19\u0e49\u0e33", "\u0e04\u0e48\u0e32\u0e40\u0e19\u0e47\u0e15", "\u0e04\u0e48\u0e32\u0e42\u0e17\u0e23\u0e28\u0e31\u0e1e\u0e17\u0e4c"],
+      shopping: ["\u0e0b\u0e37\u0e49\u0e2d\u0e40\u0e2a\u0e37\u0e49\u0e2d\u0e1c\u0e49\u0e32", "\u0e0b\u0e37\u0e49\u0e2d\u0e23\u0e2d\u0e07\u0e40\u0e17\u0e49\u0e32", "\u0e02\u0e2d\u0e07\u0e43\u0e0a\u0e49\u0e43\u0e19\u0e1a\u0e49\u0e32\u0e19", "\u0e2d\u0e38\u0e1b\u0e01\u0e23\u0e13\u0e4c"],
+      health: ["\u0e04\u0e48\u0e32\u0e22\u0e32", "\u0e04\u0e48\u0e32\u0e04\u0e25\u0e34\u0e19\u0e34\u0e01", "\u0e04\u0e48\u0e32\u0e1f\u0e34\u0e15\u0e40\u0e19\u0e2a", "\u0e04\u0e48\u0e32\u0e1b\u0e23\u0e30\u0e01\u0e31\u0e19"],
+      entertainment: ["\u0e14\u0e39\u0e2b\u0e19\u0e31\u0e07", "\u0e40\u0e25\u0e48\u0e19\u0e40\u0e01\u0e21", "\u0e04\u0e48\u0e32 streaming", "\u0e04\u0e48\u0e32\u0e04\u0e2d\u0e19\u0e40\u0e2a\u0e34\u0e23\u0e4c\u0e15"],
+      other: ["\u0e04\u0e48\u0e32\u0e02\u0e2d\u0e07\u0e02\u0e27\u0e31\u0e0d", "\u0e1a\u0e23\u0e34\u0e08\u0e32\u0e04", "\u0e04\u0e48\u0e32\u0e18\u0e23\u0e23\u0e21\u0e40\u0e19\u0e35\u0e22\u0e21"]
+    },
+    income: {
+      salary: ["\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19", "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e25\u0e48\u0e27\u0e07\u0e2b\u0e19\u0e49\u0e32", "\u0e04\u0e48\u0e32\u0e40\u0e1a\u0e35\u0e49\u0e22\u0e40\u0e25\u0e35\u0e49\u0e22\u0e07"],
+      bonus: ["\u0e42\u0e1a\u0e19\u0e31\u0e2a", "\u0e42\u0e1a\u0e19\u0e31\u0e2a\u0e1c\u0e25\u0e07\u0e32\u0e19", "\u0e04\u0e48\u0e32 commission"],
+      freelance: ["\u0e07\u0e32\u0e19 freelance", "\u0e04\u0e48\u0e32\u0e17\u0e35\u0e48\u0e1b\u0e23\u0e36\u0e01\u0e29\u0e32", "\u0e04\u0e48\u0e32\u0e42\u0e1b\u0e23\u0e40\u0e08\u0e01\u0e15\u0e4c"],
+      sales: ["\u0e02\u0e32\u0e22\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32", "\u0e2d\u0e2d\u0e40\u0e14\u0e2d\u0e23\u0e4c\u0e2d\u0e2d\u0e19\u0e44\u0e25\u0e19\u0e4c", "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e02\u0e49\u0e32 marketplace"],
+      interest: ["\u0e14\u0e2d\u0e01\u0e40\u0e1a\u0e35\u0e49\u0e22\u0e18\u0e19\u0e32\u0e04\u0e32\u0e23", "\u0e1b\u0e31\u0e19\u0e1c\u0e25", "\u0e1c\u0e25\u0e15\u0e2d\u0e1a\u0e41\u0e17\u0e19\u0e01\u0e32\u0e23\u0e25\u0e07\u0e17\u0e38\u0e19"],
+      other: ["\u0e40\u0e07\u0e34\u0e19\u0e04\u0e37\u0e19", "Cashback", "\u0e23\u0e32\u0e22\u0e23\u0e31\u0e1a\u0e2d\u0e37\u0e48\u0e19\u0e46"]
+    }
   }
 };
 
+export function normalizeCategoryValue(category) {
+  return legacyCategoryMap[category] ?? category;
+}
+
 export function getCategoryLabel(language, category) {
-  return categoryLabels[language]?.[category] ?? category;
+  const normalizedCategory = normalizeCategoryValue(category);
+  return categoryLabels[language]?.[normalizedCategory] ?? normalizedCategory;
+}
+
+export function getDescriptionSuggestions(language, type, category) {
+  const normalizedCategory = normalizeCategoryValue(category);
+  return quickFillPresets[language]?.[type]?.[normalizedCategory] ?? [];
 }

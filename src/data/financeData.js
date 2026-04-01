@@ -1,41 +1,41 @@
-﻿import { getTodayValue } from "../utils/formatters";
+import { getTodayValue } from "../utils/formatters";
 
 export const storageKey = "finance-flow-data-v1";
 
 export const categories = {
-  expense: ["อาหาร", "เดินทาง", "ที่อยู่อาศัย", "บิล", "ช้อปปิ้ง", "สุขภาพ", "บันเทิง", "อื่นๆ"],
-  income: ["เงินเดือน", "โบนัส", "ฟรีแลนซ์", "ขายของ", "ดอกเบี้ย", "อื่นๆ"],
+  expense: ["food", "travel", "housing", "bills", "shopping", "health", "entertainment", "other"],
+  income: ["salary", "bonus", "freelance", "sales", "interest", "other"],
 };
 
 export const sampleData = {
   budgets: {
-    อาหาร: 8000,
-    เดินทาง: 4000,
-    บิล: 6000,
+    food: 8000,
+    travel: 4000,
+    bills: 6000,
   },
   transactions: [
     {
       id: crypto.randomUUID(),
       type: "income",
-      description: "เงินเดือน",
+      description: "Salary",
       amount: 42000,
-      category: "เงินเดือน",
+      category: "salary",
       date: getTodayValue(),
     },
     {
       id: crypto.randomUUID(),
       type: "expense",
-      description: "ค่าน้ำมัน",
+      description: "Fuel",
       amount: 1800,
-      category: "เดินทาง",
+      category: "travel",
       date: getTodayValue(),
     },
     {
       id: crypto.randomUUID(),
       type: "expense",
-      description: "ซูเปอร์มาร์เก็ต",
+      description: "Supermarket",
       amount: 2350,
-      category: "อาหาร",
+      category: "food",
       date: getTodayValue(),
     },
   ],
