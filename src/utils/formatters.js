@@ -1,21 +1,17 @@
-const currencyFormatter = new Intl.NumberFormat("th-TH", {
-  style: "currency",
-  currency: "THB",
-  maximumFractionDigits: 2,
-});
-
-const dateFormatter = new Intl.DateTimeFormat("th-TH", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-export function formatCurrency(value) {
-  return currencyFormatter.format(value);
+export function formatCurrency(value, locale = "th-TH", currency = "THB") {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
-export function formatDisplayDate(value) {
-  return dateFormatter.format(new Date(value));
+export function formatDisplayDate(value, locale = "th-TH") {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 export function getTodayValue() {

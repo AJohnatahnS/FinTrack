@@ -1,6 +1,4 @@
-import { formatCurrency } from "../utils/formatters";
-
-export function ChartList({ entries }) {
+export function ChartList({ entries, formatMoney, getCategoryLabel }) {
   const highest = entries[0]?.[1] ?? 0;
 
   return (
@@ -8,8 +6,8 @@ export function ChartList({ entries }) {
       {entries.map(([category, amount]) => (
         <article className="chart-item" key={category}>
           <div className="chart-meta">
-            <span>{category}</span>
-            <strong>{formatCurrency(amount)}</strong>
+            <span>{getCategoryLabel(category)}</span>
+            <strong>{formatMoney(amount)}</strong>
           </div>
           <div className="chart-bar-track">
             <div

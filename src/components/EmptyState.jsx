@@ -1,3 +1,3 @@
-export function EmptyState() {
-  return <div className="empty-state">ยังไม่มีข้อมูล เริ่มเพิ่มรายการแรกได้เลย</div>;
+export function EmptyState({ message }) {
+  return <div className="empty-state">{message}</div>;
 }

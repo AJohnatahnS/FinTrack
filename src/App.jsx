@@ -1,4 +1,4 @@
-﻿import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { BudgetList } from "./components/BudgetList";
 import { ChartList } from "./components/ChartList";
 import { EmptyState } from "./components/EmptyState";
@@ -6,13 +6,15 @@ import { SummaryCard } from "./components/SummaryCard";
 import { TransactionList } from "./components/TransactionList";
 import { categories } from "./data/financeData";
 import { useSupabaseFinance } from "./hooks/useSupabaseFinance";
+import { languageOptions, translations, quickFillPresets, getCategoryLabel } from "./i18n";
 import { supabase, hasSupabaseConfig } from "./lib/supabaseClient";
 import { formatCurrency, formatDisplayDate, getTodayValue } from "./utils/formatters";
 
-const quickFillPresets = {
-  expense: ["ค่าอาหาร", "ค่าน้ำมัน", "ค่าเดินทาง", "ค่ากาแฟ", "ค่าบิล", "ค่าของใช้"],
-  income: ["เงินเดือน", "ค่าจ้าง", "โบนัส", "ฟรีแลนซ์", "ขายของ", "รายรับพิเศษ"],
-};
+const themeOptions = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
+];
 
 const defaultTransactionForm = {
   type: "expense",
@@ -23,8 +25,11 @@ const defaultTransactionForm = {
 };
 
 export default function App() {
+  const [language, setLanguage] = useState(() => getStoredLanguagePreference());
   const [transactionForm, setTransactionForm] = useState(defaultTransactionForm);
+  const [editingTransactionId, setEditingTransactionId] = useState(null);
   const [budgetForm, setBudgetForm] = useState({ category: categories.expense[0], amount: "" });
+  const [editingBudgetCategory, setEditingBudgetCategory] = useState(null);
   const [authMode, setAuthMode] = useState("signin");
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [recoveryForm, setRecoveryForm] = useState({ password: "", confirmPassword: "" });
@@ -39,9 +44,42 @@ export default function App() {
   const [isSubmittingRecovery, setIsSubmittingRecovery] = useState(false);
   const [isEntryOpen, setIsEntryOpen] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
+  const [themePreference, setThemePreference] = useState(() => getStoredThemePreference());
+  const [systemTheme, setSystemTheme] = useState(() => getSystemTheme());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("date_desc");
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+
+  const importInputRef = useRef(null);
+  const copy = translations[language];
+  const locale = language === "th" ? "th-TH" : "en-US";
+  const resolvedTheme = themePreference === "system" ? systemTheme : themePreference;
+  const quickPresetSet = quickFillPresets[language];
+  const sortOptions = [
+    { value: "date_desc", label: copy.newestDate },
+    { value: "date_asc", label: copy.oldestDate },
+    { value: "amount_desc", label: copy.highestAmount },
+    { value: "amount_asc", label: copy.lowestAmount },
+  ];
 
   const user = session?.user ?? null;
-  const { financeState, isLoading, error, addTransaction, deleteTransaction, saveBudget } = useSupabaseFinance(user);
+  const {
+    financeState,
+    isLoading,
+    isSyncing,
+    lastSyncedAt,
+    error,
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    saveBudget,
+    replaceFinanceData,
+  } = useSupabaseFinance(user);
 
   useEffect(() => {
     if (!hasSupabaseConfig || !supabase) {
@@ -50,7 +88,6 @@ export default function App() {
     }
 
     let active = true;
-
     supabase.auth.getSession().then(({ data }) => {
       if (active) {
         setSession(data.session ?? null);
@@ -61,18 +98,12 @@ export default function App() {
     const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setAuthReady(true);
-
       if (event === "PASSWORD_RECOVERY") {
         setIsRecoveryFlow(true);
         setRecoveryError("");
         setRecoveryInfo("");
       }
-
-      if (event === "USER_UPDATED") {
-        setIsRecoveryFlow(false);
-      }
-
-      if (event === "SIGNED_OUT") {
+      if (event === "USER_UPDATED" || event === "SIGNED_OUT") {
         setIsRecoveryFlow(false);
       }
     });
@@ -84,67 +115,112 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!actionSuccess) return undefined;
+    const timeoutId = window.setTimeout(() => setActionSuccess(""), 2200);
+    return () => window.clearTimeout(timeoutId);
+  }, [actionSuccess]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return undefined;
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleThemeChange = (event) => setSystemTheme(event.matches ? "dark" : "light");
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    if (typeof mediaQuery.addEventListener === "function") mediaQuery.addEventListener("change", handleThemeChange);
+    else mediaQuery.addListener(handleThemeChange);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === "function") mediaQuery.removeEventListener("change", handleThemeChange);
+      else mediaQuery.removeListener(handleThemeChange);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.theme = resolvedTheme;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute("content", resolvedTheme === "dark" ? "#071116" : "#f4efe6");
+  }, [resolvedTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("finance-flow-theme", themePreference);
+  }, [themePreference]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("finance-flow-language", language);
+  }, [language]);
+  useEffect(() => {
     setTransactionForm((current) => {
       const nextCategory = categories[current.type][0];
-      const nextDescription = quickFillPresets[current.type].includes(current.description)
-        ? ""
-        : current.description;
-
-      if (current.category === nextCategory && current.description === nextDescription) {
-        return current;
-      }
-
-      return {
-        ...current,
-        category: nextCategory,
-        description: nextDescription,
-      };
+      const allPresets = [...quickFillPresets.en[current.type], ...quickFillPresets.th[current.type]];
+      const nextDescription = allPresets.includes(current.description) ? "" : current.description;
+      if (current.category === nextCategory && current.description === nextDescription) return current;
+      return { ...current, category: nextCategory, description: nextDescription };
     });
   }, [transactionForm.type]);
 
   const deferredTransactions = useDeferredValue(financeState.transactions);
+  const formatMoney = (value) => formatCurrency(value, locale, "THB");
+  const formatDate = (value) => formatDisplayDate(value, locale);
+  const formatMonth = (monthKey) => formatMonthLabel(monthKey, locale);
+  const getCategoryDisplay = (category) => getCategoryLabel(language, category);
 
-  const currentMonthTransactions = useMemo(() => {
-    const now = new Date();
-    const month = now.getMonth();
-    const year = now.getFullYear();
+  const selectedMonthTransactions = useMemo(() => deferredTransactions.filter((transaction) => transaction.date.startsWith(selectedMonth)), [deferredTransactions, selectedMonth]);
 
-    return deferredTransactions.filter((transaction) => {
-      const date = new Date(transaction.date);
-      return date.getMonth() === month && date.getFullYear() === year;
+  const filteredTransactions = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    const nextItems = deferredTransactions.filter((transaction) => {
+      const matchesType = typeFilter === "all" ? true : transaction.type === typeFilter;
+      const matchesMonth = selectedMonth ? transaction.date.startsWith(selectedMonth) : true;
+      const matchesFrom = fromDate ? transaction.date >= fromDate : true;
+      const matchesTo = toDate ? transaction.date <= toDate : true;
+      const translatedCategory = getCategoryDisplay(transaction.category).toLowerCase();
+      const matchesSearch = query ? `${transaction.description} ${transaction.category} ${translatedCategory} ${transaction.amount}`.toLowerCase().includes(query) : true;
+      return matchesType && matchesMonth && matchesFrom && matchesTo && matchesSearch;
     });
-  }, [deferredTransactions]);
+
+    return nextItems.sort((a, b) => {
+      if (sortBy === "date_asc") return new Date(a.date) - new Date(b.date);
+      if (sortBy === "amount_desc") return b.amount - a.amount;
+      if (sortBy === "amount_asc") return a.amount - b.amount;
+      return new Date(b.date) - new Date(a.date);
+    });
+  }, [deferredTransactions, fromDate, searchTerm, selectedMonth, sortBy, toDate, typeFilter, language]);
 
   const summary = useMemo(() => {
-    const income = sumAmounts(currentMonthTransactions.filter((item) => item.type === "income"));
-    const expense = sumAmounts(currentMonthTransactions.filter((item) => item.type === "expense"));
+    const income = sumAmounts(selectedMonthTransactions.filter((item) => item.type === "income"));
+    const expense = sumAmounts(selectedMonthTransactions.filter((item) => item.type === "expense"));
     const net = income - expense;
     const budgetTotal = Object.values(financeState.budgets).reduce((sum, value) => sum + value, 0);
     const budgetUsedPercent = budgetTotal > 0 ? Math.min((expense / budgetTotal) * 100, 999) : 0;
+    return { income, expense, net, budgetUsedPercent, budgetTotal };
+  }, [financeState.budgets, selectedMonthTransactions]);
 
-    return { income, expense, net, budgetUsedPercent };
-  }, [currentMonthTransactions, financeState.budgets]);
+  const categorySpending = useMemo(() => selectedMonthTransactions.filter((item) => item.type === "expense").reduce((acc, transaction) => {
+    acc[transaction.category] = (acc[transaction.category] ?? 0) + transaction.amount;
+    return acc;
+  }, {}), [selectedMonthTransactions]);
 
-  const categorySpending = useMemo(() => {
-    return currentMonthTransactions
-      .filter((item) => item.type === "expense")
-      .reduce((acc, transaction) => {
-        acc[transaction.category] = (acc[transaction.category] ?? 0) + transaction.amount;
-        return acc;
-      }, {});
-  }, [currentMonthTransactions]);
+  const categoryEntries = useMemo(() => Object.entries(categorySpending).sort((a, b) => b[1] - a[1]), [categorySpending]);
+  const budgetEntries = useMemo(() => Object.entries(financeState.budgets).sort((a, b) => a[0].localeCompare(b[0], locale)), [financeState.budgets, locale]);
+  const reportRows = useMemo(() => {
+    const byMonth = deferredTransactions.reduce((acc, transaction) => {
+      const key = transaction.date.slice(0, 7);
+      if (!acc[key]) acc[key] = { income: 0, expense: 0 };
+      acc[key][transaction.type] += transaction.amount;
+      return acc;
+    }, {});
 
-  const categoryEntries = useMemo(() => {
-    return Object.entries(categorySpending).sort((a, b) => b[1] - a[1]);
-  }, [categorySpending]);
-
-  const budgetEntries = useMemo(() => {
-    return Object.entries(financeState.budgets).sort((a, b) => a[0].localeCompare(b[0], "th"));
-  }, [financeState.budgets]);
-
-  const sortedTransactions = useMemo(() => {
-    return [...financeState.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [financeState.transactions]);
+    return Object.entries(byMonth).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6).map(([monthKey, values]) => ({ monthKey, income: values.income, expense: values.expense, net: values.income - values.expense }));
+  }, [deferredTransactions]);
 
   const switchAuthMode = (nextMode) => {
     setAuthMode(nextMode);
@@ -155,58 +231,30 @@ export default function App() {
 
   const handleAuthSubmit = async (event) => {
     event.preventDefault();
-
-    if (!loginForm.email.trim()) {
-      setAuthError("กรอกอีเมลก่อน");
-      return;
-    }
-
-    if (authMode !== "reset" && !loginForm.password) {
-      setAuthError("กรอกรหัสผ่านให้ครบก่อน");
-      return;
-    }
-
-    if (!supabase) {
-      setAuthError("ยังไม่ได้ตั้งค่า Supabase");
-      return;
-    }
+    if (!loginForm.email.trim()) return setAuthError(copy.authEnterEmail);
+    if (authMode !== "reset" && !loginForm.password) return setAuthError(copy.authEnterPassword);
+    if (!supabase) return setAuthError(copy.supabaseNotReady);
 
     setIsSubmittingAuth(true);
     setAuthError("");
     setAuthInfo("");
 
     if (authMode === "signin") {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: loginForm.email.trim(),
-        password: loginForm.password,
-      });
-
-      if (signInError) {
-        setAuthError(signInError.message);
-      } else {
-        setLoginForm({ email: "", password: "" });
-      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: loginForm.email.trim(), password: loginForm.password });
+      if (signInError) setAuthError(signInError.message);
+      else setLoginForm({ email: "", password: "" });
     } else if (authMode === "signup") {
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: loginForm.email.trim(),
-        password: loginForm.password,
-      });
-
-      if (signUpError) {
-        setAuthError(signUpError.message);
-      } else {
-        setAuthInfo("สมัครสมาชิกสำเร็จแล้ว ถ้าเปิด email confirmation ไว้ให้ยืนยันอีเมลก่อน login");
+      const { error: signUpError } = await supabase.auth.signUp({ email: loginForm.email.trim(), password: loginForm.password });
+      if (signUpError) setAuthError(signUpError.message);
+      else {
+        setAuthInfo(copy.signupSuccess);
         setAuthMode("signin");
       }
     } else {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginForm.email.trim(), {
-        redirectTo: window.location.origin,
-      });
-
-      if (resetError) {
-        setAuthError(resetError.message);
-      } else {
-        setAuthInfo("ส่งอีเมลสำหรับรีเซ็ตรหัสผ่านแล้ว โปรดตรวจ inbox และ spam");
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginForm.email.trim(), { redirectTo: window.location.origin });
+      if (resetError) setAuthError(resetError.message);
+      else {
+        setAuthInfo(copy.resetSent);
         setAuthMode("signin");
       }
     }
@@ -216,386 +264,267 @@ export default function App() {
 
   const handleRecoverySubmit = async (event) => {
     event.preventDefault();
-
-    if (!recoveryForm.password || !recoveryForm.confirmPassword) {
-      setRecoveryError("กรอกรหัสผ่านใหม่ให้ครบก่อน");
-      return;
-    }
-
-    if (recoveryForm.password.length < 6) {
-      setRecoveryError("รหัสผ่านใหม่ต้องยาวอย่างน้อย 6 ตัวอักษร");
-      return;
-    }
-
-    if (recoveryForm.password !== recoveryForm.confirmPassword) {
-      setRecoveryError("รหัสผ่านใหม่กับการยืนยันไม่ตรงกัน");
-      return;
-    }
-
-    if (!supabase) {
-      setRecoveryError("ยังไม่ได้ตั้งค่า Supabase");
-      return;
-    }
+    if (!recoveryForm.password || !recoveryForm.confirmPassword) return setRecoveryError(copy.enterNewPassword);
+    if (recoveryForm.password.length < 6) return setRecoveryError(copy.passwordTooShort);
+    if (recoveryForm.password !== recoveryForm.confirmPassword) return setRecoveryError(copy.passwordMismatch);
+    if (!supabase) return setRecoveryError(copy.supabaseNotReady);
 
     setIsSubmittingRecovery(true);
     setRecoveryError("");
     setRecoveryInfo("");
-
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: recoveryForm.password,
-    });
-
-    if (updateError) {
-      setRecoveryError(updateError.message);
-    } else {
-      setRecoveryInfo("ตั้งรหัสผ่านใหม่สำเร็จแล้ว กำลังพาเข้าสู่แอป");
+    const { error: updateError } = await supabase.auth.updateUser({ password: recoveryForm.password });
+    if (updateError) setRecoveryError(updateError.message);
+    else {
+      setRecoveryInfo(copy.passwordUpdated);
       setRecoveryForm({ password: "", confirmPassword: "" });
       setIsRecoveryFlow(false);
     }
-
     setIsSubmittingRecovery(false);
   };
 
   const handleLogout = async () => {
     setActionError("");
+    setActionSuccess("");
     setIsEntryOpen(false);
     setIsRecoveryFlow(false);
-
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+    setEditingTransactionId(null);
+    if (supabase) await supabase.auth.signOut();
   };
 
+  const closeEntryDrawer = () => {
+    setIsEntryOpen(false);
+    setEditingTransactionId(null);
+    setTransactionForm(defaultTransactionForm);
+  };
+
+  const openEntryDrawer = (type = "expense") => {
+    setActionError("");
+    setActionSuccess("");
+    setEditingTransactionId(null);
+    setTransactionForm({ type, description: "", amount: "", category: categories[type][0], date: getTodayValue() });
+    setIsEntryOpen(true);
+  };
+
+  const handleEditTransaction = (transaction) => {
+    setActionError("");
+    setActionSuccess("");
+    setEditingTransactionId(transaction.id);
+    setTransactionForm({ type: transaction.type, description: transaction.description ?? "", amount: String(transaction.amount), category: transaction.category, date: transaction.date });
+    setIsEntryOpen(true);
+  };
   const handleTransactionSubmit = async (event) => {
     event.preventDefault();
     setActionError("");
-
+    setActionSuccess("");
     const amount = Number(transactionForm.amount);
-    if (Number.isNaN(amount) || amount <= 0) {
-      setActionError("จำนวนเงินต้องมากกว่า 0");
-      return;
-    }
+    if (Number.isNaN(amount) || amount <= 0) return setActionError(copy.amountGreaterZero);
 
-    const result = await addTransaction({
-      type: transactionForm.type,
-      description: transactionForm.description.trim(),
-      amount,
-      category: transactionForm.category,
-      date: transactionForm.date,
-    });
-
-    if (result.error) {
-      setActionError(result.error.message ?? "บันทึกรายการไม่สำเร็จ");
-      return;
-    }
-
-    setTransactionForm({
-      type: transactionForm.type,
-      description: "",
-      amount: "",
-      category: categories[transactionForm.type][0],
-      date: getTodayValue(),
-    });
-    setIsEntryOpen(false);
+    const payload = { type: transactionForm.type, description: transactionForm.description.trim(), amount, category: transactionForm.category, date: transactionForm.date };
+    const result = editingTransactionId ? await updateTransaction(editingTransactionId, payload) : await addTransaction(payload);
+    if (result.error) return setActionError(result.error.message ?? copy.saveTransactionError);
+    setActionSuccess(editingTransactionId ? copy.transactionUpdated : copy.transactionSaved);
+    closeEntryDrawer();
   };
 
   const handleBudgetSubmit = async (event) => {
     event.preventDefault();
     setActionError("");
-
+    setActionSuccess("");
     const amount = Number(budgetForm.amount);
-    if (Number.isNaN(amount) || amount < 0) {
-      setActionError("งบประมาณต้องเป็นตัวเลข 0 ขึ้นไป");
-      return;
-    }
-
+    if (Number.isNaN(amount) || amount < 0) return setActionError(copy.budgetMinZero);
+    const wasEditing = Boolean(editingBudgetCategory);
     const result = await saveBudget(budgetForm.category, amount);
-    if (result.error) {
-      setActionError(result.error.message ?? "บันทึกงบประมาณไม่สำเร็จ");
-      return;
-    }
+    if (result.error) return setActionError(result.error.message ?? copy.saveBudgetError);
+    setActionSuccess(wasEditing ? copy.budgetUpdated : copy.budgetSaved);
+    setBudgetForm({ category: categories.expense[0], amount: "" });
+    setEditingBudgetCategory(null);
+  };
 
-    setBudgetForm((current) => ({ ...current, amount: "" }));
+  const handleEditBudget = (category, amount) => {
+    setEditingBudgetCategory(category);
+    setBudgetForm({ category, amount: String(amount) });
   };
 
   const handleDeleteTransaction = async (transactionId) => {
+    if (!window.confirm(copy.deleteConfirm)) return;
     setActionError("");
+    setActionSuccess("");
     const result = await deleteTransaction(transactionId);
+    if (result.error) return setActionError(result.error.message ?? copy.deleteTransactionError);
+    setActionSuccess(copy.transactionDeleted);
+  };
 
-    if (result.error) {
-      setActionError(result.error.message ?? "ลบรายการไม่สำเร็จ");
+  const handleExportJson = () => {
+    const payload = JSON.stringify({ exportedAt: new Date().toISOString(), transactions: financeState.transactions, budgets: financeState.budgets }, null, 2);
+    downloadFile(`finance-flow-${selectedMonth}.json`, payload, "application/json");
+    setActionSuccess(copy.jsonExported);
+  };
+
+  const handleExportCsv = () => {
+    const header = ["date", "type", "category", "description", "amount"];
+    const rows = filteredTransactions.map((item) => [item.date, item.type, item.category, item.description ?? "", item.amount]);
+    const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
+    downloadFile(`finance-flow-${selectedMonth}.csv`, csv, "text/csv;charset=utf-8;");
+    setActionSuccess(copy.csvExported);
+  };
+
+  const handleImportJson = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const result = await replaceFinanceData({ transactions: parsed.transactions ?? [], budgets: parsed.budgets ?? {} });
+      if (result.error) setActionError(result.error.message ?? copy.importDataError);
+      else setActionSuccess(copy.dataImported);
+    } catch {
+      setActionError(copy.invalidJson);
     }
+    event.target.value = "";
   };
 
-  const openEntryDrawer = () => {
-    setActionError("");
-    setTransactionForm((current) => ({
-      ...current,
-      date: current.date || getTodayValue(),
-    }));
-    setIsEntryOpen(true);
-  };
+  const themeSwitcher = (
+    <div className="theme-switcher" role="group" aria-label="Theme mode">
+      {themeOptions.map((option) => (
+        <button key={option.value} className={themePreference === option.value ? "theme-chip active" : "theme-chip"} type="button" onClick={() => setThemePreference(option.value)}>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
 
-  if (!hasSupabaseConfig) {
-    return (
-      <div className="lock-screen-shell">
-        <section className="lock-card">
-          <p className="eyebrow">Supabase Setup</p>
-          <h1 className="lock-title">ยังไม่ได้ตั้งค่า Supabase</h1>
-          <p className="lock-copy">เพิ่ม VITE_SUPABASE_URL และ VITE_SUPABASE_ANON_KEY ใน .env.local ก่อนใช้งาน</p>
-        </section>
-      </div>
-    );
-  }
+  const languageSwitcher = (
+    <div className="theme-switcher" role="group" aria-label="Language mode">
+      {languageOptions.map((option) => (
+        <button key={option.value} className={language === option.value ? "theme-chip active" : "theme-chip"} type="button" onClick={() => setLanguage(option.value)}>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
 
-  if (!authReady) {
-    return (
-      <div className="lock-screen-shell">
-        <section className="lock-card">
-          <p className="eyebrow">Secure Access</p>
-          <h1 className="lock-title">กำลังเชื่อมต่อ Supabase</h1>
-          <p className="lock-copy">โปรดรอสักครู่ก่อนเข้าใช้งาน Finance Flow</p>
-        </section>
-      </div>
-    );
-  }
+  const syncLabel = !isOnline ? copy.offlineCopy : isSyncing ? copy.syncingCopy : lastSyncedAt ? `${copy.lastSync} ${new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(lastSyncedAt))}` : copy.readyToSync;
+
+  if (!hasSupabaseConfig) return <div className="lock-screen-shell"><section className="lock-card">{themeSwitcher}{languageSwitcher}<p className="eyebrow">{copy.supabaseSetup}</p><h1 className="lock-title">{copy.supabaseMissingTitle}</h1><p className="lock-copy">{copy.supabaseMissingCopy}</p></section></div>;
+  if (!authReady) return <div className="lock-screen-shell"><section className="lock-card">{themeSwitcher}{languageSwitcher}<p className="eyebrow">{copy.secureAccess}</p><h1 className="lock-title">{copy.connectingTitle}</h1><p className="lock-copy">{copy.connectingCopy}</p></section></div>;
 
   if (isRecoveryFlow && user) {
-    return (
-      <div className="lock-screen-shell">
-        <section className="lock-card">
-          <p className="eyebrow">Password Recovery</p>
-          <h1 className="lock-title">ตั้งรหัสผ่านใหม่ก่อนเข้าหน้าหลัก</h1>
-          <p className="lock-copy">คุณเข้ามาจาก recovery link ของ Supabase จึงต้องตั้งรหัสผ่านใหม่ให้เสร็จก่อน</p>
-          <form className="lock-form" onSubmit={handleRecoverySubmit}>
-            <label>
-              <span>รหัสผ่านใหม่</span>
-              <input
-                className="pin-input"
-                type="password"
-                autoComplete="new-password"
-                placeholder="อย่างน้อย 6 ตัวอักษร"
-                value={recoveryForm.password}
-                onChange={(event) => setRecoveryForm((current) => ({ ...current, password: event.target.value }))}
-                required
-              />
-            </label>
-            <label>
-              <span>ยืนยันรหัสผ่านใหม่</span>
-              <input
-                className="pin-input"
-                type="password"
-                autoComplete="new-password"
-                placeholder="กรอกรหัสผ่านอีกครั้ง"
-                value={recoveryForm.confirmPassword}
-                onChange={(event) => setRecoveryForm((current) => ({ ...current, confirmPassword: event.target.value }))}
-                required
-              />
-            </label>
-            {recoveryError ? <p className="pin-error">{recoveryError}</p> : null}
-            {recoveryInfo ? <p className="auth-info">{recoveryInfo}</p> : null}
-            <button className="primary-btn" type="submit" disabled={isSubmittingRecovery}>
-              {isSubmittingRecovery ? "กำลังบันทึก..." : "ตั้งรหัสผ่านใหม่"}
-            </button>
-          </form>
-        </section>
-      </div>
-    );
+    return <div className="lock-screen-shell"><section className="lock-card">{themeSwitcher}{languageSwitcher}<p className="eyebrow">{copy.passwordRecovery}</p><h1 className="lock-title">{copy.recoveryTitle}</h1><p className="lock-copy">{copy.recoveryCopy}</p><form className="lock-form" onSubmit={handleRecoverySubmit}><label><span>{copy.newPassword}</span><input className="pin-input" type="password" autoComplete="new-password" placeholder={copy.newPasswordPlaceholder} value={recoveryForm.password} onChange={(event) => setRecoveryForm((current) => ({ ...current, password: event.target.value }))} required /></label><label><span>{copy.confirmPassword}</span><input className="pin-input" type="password" autoComplete="new-password" placeholder={copy.confirmPasswordPlaceholder} value={recoveryForm.confirmPassword} onChange={(event) => setRecoveryForm((current) => ({ ...current, confirmPassword: event.target.value }))} required /></label>{recoveryError ? <p className="pin-error">{recoveryError}</p> : null}{recoveryInfo ? <p className="auth-info">{recoveryInfo}</p> : null}<button className="primary-btn" type="submit" disabled={isSubmittingRecovery}>{isSubmittingRecovery ? copy.saving : copy.saveNewPassword}</button></form></section></div>;
   }
 
   if (!user) {
-    return (
-      <div className="lock-screen-shell">
-        <section className="lock-card">
-          <p className="eyebrow">Secure Access</p>
-          <h1 className="lock-title">เข้าสู่ระบบเพื่อซิงค์ข้อมูล</h1>
-          <p className="lock-copy">เมื่อ login ด้วยบัญชีเดียวกันบนมือถือและคอม ข้อมูลจะถูกดึงจาก Supabase ชุดเดียวกัน</p>
-          <div className="toggle-bar auth-toggle" role="tablist" aria-label="โหมดเข้าสู่ระบบ">
-            <button className={authMode === "signin" ? "toggle-option active income" : "toggle-option"} type="button" onClick={() => switchAuthMode("signin")}>เข้าสู่ระบบ</button>
-            <button className={authMode === "signup" ? "toggle-option active expense" : "toggle-option"} type="button" onClick={() => switchAuthMode("signup")}>สมัครสมาชิก</button>
-          </div>
-          <form className="lock-form" onSubmit={handleAuthSubmit}>
-            <label>
-              <span>อีเมล</span>
-              <input type="email" autoComplete="email" placeholder="you@example.com" value={loginForm.email} onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))} required />
-            </label>
-            {authMode !== "reset" ? (
-              <label>
-                <span>รหัสผ่าน</span>
-                <input className="pin-input" type="password" autoComplete={authMode === "signin" ? "current-password" : "new-password"} placeholder="อย่างน้อย 6 ตัวอักษร" value={loginForm.password} onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))} required />
-              </label>
-            ) : null}
-            {authError ? <p className="pin-error">{authError}</p> : null}
-            {authInfo ? <p className="auth-info">{authInfo}</p> : null}
-            <button className="primary-btn" type="submit" disabled={isSubmittingAuth}>
-              {isSubmittingAuth ? "กำลังตรวจสอบ..." : authMode === "signin" ? "เข้าสู่ระบบ" : authMode === "signup" ? "สร้างบัญชี" : "ส่งลิงก์รีเซ็ตรหัสผ่าน"}
-            </button>
-            <div className="auth-link-row">
-              {authMode === "signin" ? (
-                <button className="auth-link-btn" type="button" onClick={() => switchAuthMode("reset")}>ลืมรหัสผ่าน?</button>
-              ) : null}
-              {authMode === "reset" ? (
-                <button className="auth-link-btn" type="button" onClick={() => switchAuthMode("signin")}>กลับไปหน้าเข้าสู่ระบบ</button>
-              ) : null}
-            </div>
-          </form>
-        </section>
-      </div>
-    );
+    return <div className="lock-screen-shell"><section className="lock-card">{themeSwitcher}{languageSwitcher}<p className="eyebrow">{copy.secureAccess}</p><h1 className="lock-title">{copy.signInTitle}</h1><p className="lock-copy">{copy.signInCopy}</p><div className="toggle-bar auth-toggle" role="tablist" aria-label="Authentication mode"><button className={authMode === "signin" ? "toggle-option active income" : "toggle-option"} type="button" onClick={() => switchAuthMode("signin")}>{copy.signIn}</button><button className={authMode === "signup" ? "toggle-option active expense" : "toggle-option"} type="button" onClick={() => switchAuthMode("signup")}>{copy.signUp}</button></div><form className="lock-form" onSubmit={handleAuthSubmit}><label><span>{copy.email}</span><input type="email" autoComplete="email" placeholder="you@example.com" value={loginForm.email} onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))} required /></label>{authMode !== "reset" ? <label><span>{copy.password}</span><input className="pin-input" type="password" autoComplete={authMode === "signin" ? "current-password" : "new-password"} placeholder={copy.passwordPlaceholder} value={loginForm.password} onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))} required /></label> : null}{authError ? <p className="pin-error">{authError}</p> : null}{authInfo ? <p className="auth-info">{authInfo}</p> : null}<button className="primary-btn" type="submit" disabled={isSubmittingAuth}>{isSubmittingAuth ? copy.working : authMode === "signin" ? copy.signIn : authMode === "signup" ? copy.createAccount : copy.sendResetLink}</button><div className="auth-link-row">{authMode === "signin" ? <button className="auth-link-btn" type="button" onClick={() => switchAuthMode("reset")}>{copy.forgotPassword}</button> : null}{authMode === "reset" ? <button className="auth-link-btn" type="button" onClick={() => switchAuthMode("signin")}>{copy.backToSignIn}</button> : null}</div></form></section></div>;
   }
 
   return (
     <div className="app-shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">Personal Finance Dashboard</p>
-          <h1>คุมเงินของคุณแบบเห็นภาพจริง</h1>
-          <p className="hero-copy">บันทึกรายรับรายจ่าย ติดตามงบประมาณ และซิงค์ข้อมูลข้ามอุปกรณ์ผ่าน Supabase</p>
+          <p className="eyebrow">{copy.dashboardEyebrow}</p>
+          <h1>{copy.dashboardTitle}</h1>
+          <p className="hero-copy">{copy.dashboardCopy}</p>
         </div>
         <div className="hero-side">
-          <div className="hero-stat">
-            <span>เดือนนี้</span>
-            <strong>{formatCurrency(summary.net)}</strong>
-            <small>{user.email}</small>
-          </div>
-          <button className="logout-btn" type="button" onClick={handleLogout}>ออกจากระบบ</button>
+          {themeSwitcher}
+          {languageSwitcher}
+          <div className="hero-stat"><span>{formatMonth(selectedMonth)}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
+          <button className="logout-btn" type="button" onClick={handleLogout}>{copy.logout}</button>
         </div>
       </header>
-
+      <div className="panel notice-panel sync-panel"><strong>{isOnline ? (isSyncing ? copy.syncing : copy.connected) : copy.offline}</strong><span>{syncLabel}</span></div>
       {error || actionError ? <div className="panel notice-panel error">{actionError || error}</div> : null}
-      {isLoading ? <div className="panel notice-panel">กำลังโหลดข้อมูลจาก Supabase...</div> : null}
+      {actionSuccess ? <div className="panel notice-panel success">{actionSuccess}</div> : null}
+      {isLoading ? <div className="panel notice-panel">{copy.loadingData}</div> : null}
 
       <main className="layout compact-layout">
         <section className="summary-grid">
-          <SummaryCard tone="income" label="รายรับเดือนนี้" value={formatCurrency(summary.income)} />
-          <SummaryCard tone="expense" label="รายจ่ายเดือนนี้" value={formatCurrency(summary.expense)} />
-          <SummaryCard tone="balance" label="คงเหลือเดือนนี้" value={formatCurrency(summary.net)} />
-          <SummaryCard tone="budget" label="ใช้งบไปแล้ว" value={`${summary.budgetUsedPercent.toFixed(0)}%`} />
+          <SummaryCard tone="income" label={copy.incomeThisMonth} value={formatMoney(summary.income)} />
+          <SummaryCard tone="expense" label={copy.expenseThisMonth} value={formatMoney(summary.expense)} />
+          <SummaryCard tone="balance" label={copy.netThisMonth} value={formatMoney(summary.net)} />
+          <SummaryCard tone="budget" label={copy.budgetUsage} value={summary.budgetTotal > 0 ? `${summary.budgetUsedPercent.toFixed(0)}%` : copy.noBudgetYet} />
         </section>
 
-        <section className="panel chart-panel">
-          <div className="panel-head">
-            <h2>ภาพรวมรายจ่ายตามหมวดหมู่</h2>
-            <p>แสดงเฉพาะรายการของเดือนปัจจุบัน</p>
+        <section className="panel full-span tools-panel">
+          <div className="panel-head"><h2>{copy.toolsTitle}</h2><p>{copy.toolsCopy}</p></div>
+          <div className="tools-grid">
+            <label><span>{copy.month}</span><input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} /></label>
+            <label><span>{copy.fromDate}</span><input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
+            <label><span>{copy.toDate}</span><input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
+            <label><span>{copy.type}</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">{copy.all}</option><option value="income">{copy.income}</option><option value="expense">{copy.expense}</option></select></label>
+            <label><span>{copy.search}</span><input type="search" placeholder={copy.searchPlaceholder} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} /></label>
+            <label><span>{copy.sort}</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           </div>
-          {categoryEntries.length === 0 ? <EmptyState /> : <ChartList entries={categoryEntries} />}
+          <div className="tools-actions">
+            <button className="close-btn" type="button" onClick={() => { setSelectedMonth(new Date().toISOString().slice(0, 7)); setFromDate(""); setToDate(""); setTypeFilter("all"); setSearchTerm(""); setSortBy("date_desc"); }}>{copy.clearFilters}</button>
+            <button className="close-btn" type="button" onClick={handleExportJson}>{copy.exportJson}</button>
+            <button className="close-btn" type="button" onClick={handleExportCsv}>{copy.exportCsv}</button>
+            <button className="close-btn" type="button" onClick={() => importInputRef.current?.click()}>{copy.importJson}</button>
+            <input ref={importInputRef} className="hidden-input" type="file" accept="application/json" onChange={handleImportJson} />
+          </div>
         </section>
+
+        <section className="panel chart-panel"><div className="panel-head"><h2>{copy.chartTitle}</h2><p>{copy.chartCopy}</p></div>{categoryEntries.length === 0 ? <EmptyState message={copy.emptyState} /> : <ChartList entries={categoryEntries} formatMoney={formatMoney} getCategoryLabel={getCategoryDisplay} />}</section>
 
         <section className="panel budget-panel">
-          <div className="panel-head">
-            <h2>งบประมาณรายเดือน</h2>
-            <p>กำหนดเพดานค่าใช้จ่ายต่อหมวดหมู่</p>
-          </div>
-
+          <div className="panel-head"><h2>{copy.budgetTitle}</h2><p>{editingBudgetCategory ? `${copy.editing} ${getCategoryDisplay(editingBudgetCategory)}` : copy.budgetCopy}</p></div>
           <form className="split budget-form" onSubmit={handleBudgetSubmit}>
-            <label>
-              <span>หมวดหมู่</span>
-              <select value={budgetForm.category} onChange={(event) => setBudgetForm((current) => ({ ...current, category: event.target.value }))}>
-                {categories.expense.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              <span>งบประมาณ</span>
-              <input type="number" min="0" step="0.01" placeholder="0.00" value={budgetForm.amount} onChange={(event) => setBudgetForm((current) => ({ ...current, amount: event.target.value }))} required />
-            </label>
-
-            <button className="secondary-btn" type="submit">บันทึกงบ</button>
+            <label><span>{copy.category}</span><select value={budgetForm.category} onChange={(event) => setBudgetForm((current) => ({ ...current, category: event.target.value }))}>{categories.expense.map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label>
+            <label><span>{copy.budgetAmount}</span><input type="number" min="0" step="0.01" placeholder="0.00" value={budgetForm.amount} onChange={(event) => setBudgetForm((current) => ({ ...current, amount: event.target.value }))} required /></label>
+            <button className="secondary-btn" type="submit">{editingBudgetCategory ? copy.updateBudget : copy.saveBudget}</button>
+            {editingBudgetCategory ? <button className="close-btn budget-cancel-btn" type="button" onClick={() => { setEditingBudgetCategory(null); setBudgetForm({ category: categories.expense[0], amount: "" }); }}>{copy.cancel}</button> : null}
           </form>
-
-          {budgetEntries.length === 0 ? <EmptyState /> : <BudgetList entries={budgetEntries} categorySpending={categorySpending} />}
+          {budgetEntries.length === 0 ? <EmptyState message={copy.emptyState} /> : <BudgetList entries={budgetEntries} categorySpending={categorySpending} onEdit={handleEditBudget} labels={{ overBudget: copy.overBudget, nearBudget: copy.nearBudget, inBudget: copy.inBudget, editBudget: copy.editBudget }} formatMoney={formatMoney} getCategoryLabel={getCategoryDisplay} />}
         </section>
 
+        <section className="panel report-panel full-span"><div className="panel-head"><h2>{copy.reportTitle}</h2><p>{copy.reportCopy}</p></div>{reportRows.length === 0 ? <EmptyState message={copy.emptyState} /> : <div className="report-list">{reportRows.map((row) => <article className="report-item" key={row.monthKey}><div><strong>{formatMonth(row.monthKey)}</strong></div><div className="report-metrics"><span>{copy.reportIncome} {formatMoney(row.income)}</span><span>{copy.reportExpense} {formatMoney(row.expense)}</span><strong className={row.net >= 0 ? "report-net positive" : "report-net negative"}>{formatMoney(row.net)}</strong></div></article>)}</div>}</section>
+
         <section className="panel transaction-panel full-span">
-          <div className="panel-head">
-            <h2>รายการล่าสุด</h2>
-            <p>ลบรายการที่บันทึกผิดได้ทันที</p>
-          </div>
-          {sortedTransactions.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <TransactionList
-              items={sortedTransactions.map((item) => ({
-                ...item,
-                amountLabel: `${item.type === "expense" ? "-" : "+"}${formatCurrency(item.amount)}`,
-                typeLabel: item.type === "expense" ? "รายจ่าย" : "รายรับ",
-                dateLabel: formatDisplayDate(item.date),
-              }))}
-              onRemove={handleDeleteTransaction}
-            />
-          )}
+          <div className="panel-head"><h2>{copy.transactionsTitle}</h2><p>{copy.transactionsCopy}</p></div>
+          {filteredTransactions.length === 0 ? <EmptyState message={copy.emptyState} /> : <TransactionList items={filteredTransactions.map((item) => ({ ...item, amountLabel: `${item.type === "expense" ? "-" : "+"}${formatMoney(item.amount)}`, typeLabel: item.type === "expense" ? copy.expense : copy.income, dateLabel: formatDate(item.date), categoryLabel: getCategoryDisplay(item.category) }))} onEdit={handleEditTransaction} onRemove={handleDeleteTransaction} labels={{ noDescription: copy.noDescription, edit: copy.edit, delete: copy.delete }} />}
         </section>
       </main>
 
-      <button className="fab-entry" type="button" onClick={openEntryDrawer} aria-label="เพิ่มรายการ">
-        <span className="fab-plus">+</span>
-        <span className="fab-label">เพิ่มรายการ</span>
-      </button>
+      <div className="fab-entry-group" aria-label={copy.quickAdd}>
+        <button className="fab-entry fab-entry-income" type="button" onClick={() => openEntryDrawer("income")}><span className="fab-plus">+</span><span className="fab-label">{copy.fabIncome}</span></button>
+        <button className="fab-entry fab-entry-expense" type="button" onClick={() => openEntryDrawer("expense")}><span className="fab-plus">+</span><span className="fab-label">{copy.fabExpense}</span></button>
+      </div>
 
-      {isEntryOpen ? (
-        <div className="entry-overlay" onClick={() => setIsEntryOpen(false)}>
-          <section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}>
-            <div className="sheet-handle" aria-hidden="true" />
-            <div className="panel-head entry-head">
-              <div>
-                <h2>เพิ่มรายการ</h2>
-                <p>แตะเลือกประเภทรายการแล้วกรอกเฉพาะที่จำเป็น</p>
-              </div>
-              <button className="close-btn" type="button" onClick={() => setIsEntryOpen(false)}>ปิด</button>
-            </div>
-
-            <form className="stack" onSubmit={handleTransactionSubmit}>
-              <label>
-                <span>ประเภทรายการ</span>
-                <div className="toggle-bar" role="tablist" aria-label="ประเภทรายการ">
-                  <button className={transactionForm.type === "expense" ? "toggle-option active expense" : "toggle-option"} type="button" onClick={() => setTransactionForm((current) => ({ ...current, type: "expense" }))}>รายจ่าย</button>
-                  <button className={transactionForm.type === "income" ? "toggle-option active income" : "toggle-option"} type="button" onClick={() => setTransactionForm((current) => ({ ...current, type: "income" }))}>รายรับ</button>
-                </div>
-              </label>
-
-              <label>
-                <span>รายละเอียด</span>
-                <input type="text" placeholder={transactionForm.type === "expense" ? "เช่น ค่าอาหารเย็น" : "เช่น เงินเดือน"} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} />
-              </label>
-
-              <div className="quick-fill-row">
-                {quickFillPresets[transactionForm.type].map((preset) => (
-                  <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>
-                ))}
-              </div>
-
-              <div className="split">
-                <label>
-                  <span>จำนวนเงิน</span>
-                  <input type="number" min="0" step="0.01" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required />
-                </label>
-
-                <label>
-                  <span>วันที่</span>
-                  <input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} required />
-                </label>
-              </div>
-
-              <label>
-                <span>หมวดหมู่</span>
-                <select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>
-                  {categories[transactionForm.type].map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </label>
-
-              <button className="primary-btn" type="submit">บันทึกรายการ</button>
-            </form>
-          </section>
-        </div>
-      ) : null}
+      {isEntryOpen ? <div className="entry-overlay" onClick={closeEntryDrawer}><section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" aria-hidden="true" /><div className="panel-head entry-head"><div><h2>{editingTransactionId ? copy.editTransactionTitle : transactionForm.type === "income" ? copy.addIncomeTitle : copy.addExpenseTitle}</h2><p>{copy.entryCopy}</p></div><button className="close-btn" type="button" onClick={closeEntryDrawer}>{copy.close}</button></div><form className="stack" onSubmit={handleTransactionSubmit}><label><span>{copy.category}</span><select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>{categories[transactionForm.type].map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label><label><span>{copy.description}</span><input type="text" placeholder={transactionForm.type === "expense" ? copy.expensePlaceholder : copy.incomePlaceholder} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} /></label><div className="quick-fill-row">{quickPresetSet[transactionForm.type].map((preset) => <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>)}</div><div className="split"><label><span>{copy.amount}</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required /><small className="field-hint">{Number(transactionForm.amount) > 0 ? formatMoney(Number(transactionForm.amount)) : copy.amountHint}</small></label><label><span>{copy.date}</span><input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} required /></label></div><button className="primary-btn" type="submit">{editingTransactionId ? copy.updateTransaction : copy.saveTransaction}</button></form></section></div> : null}
     </div>
   );
 }
 
+function getStoredThemePreference() {
+  if (typeof window === "undefined") return "system";
+  const storedValue = window.localStorage.getItem("finance-flow-theme");
+  return themeOptions.some((option) => option.value === storedValue) ? storedValue : "system";
+}
+
+function getStoredLanguagePreference() {
+  if (typeof window === "undefined") return "th";
+  const storedValue = window.localStorage.getItem("finance-flow-language");
+  return languageOptions.some((option) => option.value === storedValue) ? storedValue : "th";
+}
+
+function getSystemTheme() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function sumAmounts(items) {
   return items.reduce((sum, item) => sum + item.amount, 0);
+}
+
+function formatMonthLabel(monthKey, locale) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
+}
+
+function downloadFile(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
 }
