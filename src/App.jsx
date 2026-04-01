@@ -430,7 +430,7 @@ export default function App() {
         <div className="hero-side">
           {themeSwitcher}
           {languageSwitcher}
-          <div className="hero-stat"><span>{language === "th" ? "???????? 30 ???" : "Last 30 days"}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
+          <div className="hero-stat"><span>{copy.last30Days}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
           <button className="logout-btn" type="button" onClick={handleLogout}>{copy.logout}</button>
         </div>
       </header>
@@ -450,8 +450,8 @@ export default function App() {
         <section className="panel full-span tools-panel">
           <div className="panel-head"><h2>{copy.toolsTitle}</h2><p>{copy.toolsCopy}</p></div>
           <div className="tools-grid">
-            <label><span>{copy.fromDate}</span><input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
-            <label><span>{copy.toDate}</span><input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
+            <label><span>{copy.fromDate}</span><DateField value={fromDate} onChange={setFromDate} placeholder={copy.datePlaceholder} pickDateLabel={copy.pickDate} clearDateLabel={copy.clearDate} /></label>
+            <label><span>{copy.toDate}</span><DateField value={toDate} onChange={setToDate} placeholder={copy.datePlaceholder} pickDateLabel={copy.pickDate} clearDateLabel={copy.clearDate} /></label>
             <label><span>{copy.type}</span><select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">{copy.all}</option><option value="income">{copy.income}</option><option value="expense">{copy.expense}</option></select></label>
             <label><span>{copy.search}</span><input type="search" placeholder={copy.searchPlaceholder} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} /></label>
             <label><span>{copy.sort}</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>{sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -491,7 +491,78 @@ export default function App() {
         <button className="fab-entry fab-entry-expense" type="button" onClick={() => openEntryDrawer("expense")}><span className="fab-plus">+</span><span className="fab-label">{copy.fabExpense}</span></button>
       </div>
 
-      {isEntryOpen ? <div className="entry-overlay" onClick={closeEntryDrawer}><section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" aria-hidden="true" /><div className="panel-head entry-head"><div><h2>{editingTransactionId ? copy.editTransactionTitle : transactionForm.type === "income" ? copy.addIncomeTitle : copy.addExpenseTitle}</h2><p>{copy.entryCopy}</p></div><button className="close-btn" type="button" onClick={closeEntryDrawer}>{copy.close}</button></div><form className="stack" onSubmit={handleTransactionSubmit}><label><span>{copy.category}</span><select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>{categories[transactionForm.type].map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label><label><span>{copy.description}</span><input type="text" placeholder={transactionForm.type === "expense" ? copy.expensePlaceholder : copy.incomePlaceholder} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} /></label><div className="quick-fill-row">{quickPresetSet[transactionForm.type].map((preset) => <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>)}</div><div className="split"><label><span>{copy.amount}</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required /><small className="field-hint">{Number(transactionForm.amount) > 0 ? formatMoney(Number(transactionForm.amount)) : copy.amountHint}</small></label><label><span>{copy.date}</span><input type="date" value={transactionForm.date} onChange={(event) => setTransactionForm((current) => ({ ...current, date: event.target.value }))} required /></label></div><button className="primary-btn" type="submit">{editingTransactionId ? copy.updateTransaction : copy.saveTransaction}</button></form></section></div> : null}
+      {isEntryOpen ? <div className="entry-overlay" onClick={closeEntryDrawer}><section className="entry-drawer panel" onClick={(event) => event.stopPropagation()}><div className="sheet-handle" aria-hidden="true" /><div className="panel-head entry-head"><div><h2>{editingTransactionId ? copy.editTransactionTitle : transactionForm.type === "income" ? copy.addIncomeTitle : copy.addExpenseTitle}</h2><p>{copy.entryCopy}</p></div><button className="close-btn" type="button" onClick={closeEntryDrawer}>{copy.close}</button></div><form className="stack" onSubmit={handleTransactionSubmit}><label><span>{copy.category}</span><select value={transactionForm.category} onChange={(event) => setTransactionForm((current) => ({ ...current, category: event.target.value }))}>{categories[transactionForm.type].map((category) => <option key={category} value={category}>{getCategoryDisplay(category)}</option>)}</select></label><label><span>{copy.description}</span><input type="text" placeholder={transactionForm.type === "expense" ? copy.expensePlaceholder : copy.incomePlaceholder} value={transactionForm.description} onChange={(event) => setTransactionForm((current) => ({ ...current, description: event.target.value }))} /></label><div className="quick-fill-row">{quickPresetSet[transactionForm.type].map((preset) => <button key={preset} className="quick-fill-chip" type="button" onClick={() => setTransactionForm((current) => ({ ...current, description: preset }))}>{preset}</button>)}</div><div className="split"><label><span>{copy.amount}</span><input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00" value={transactionForm.amount} onChange={(event) => setTransactionForm((current) => ({ ...current, amount: event.target.value }))} required /><small className="field-hint">{Number(transactionForm.amount) > 0 ? formatMoney(Number(transactionForm.amount)) : copy.amountHint}</small></label><label><span>{copy.date}</span><DateField value={transactionForm.date} onChange={(value) => setTransactionForm((current) => ({ ...current, date: value }))} placeholder={copy.datePlaceholder} pickDateLabel={copy.pickDate} clearDateLabel={copy.clearDate} required /></label></div><button className="primary-btn" type="submit">{editingTransactionId ? copy.updateTransaction : copy.saveTransaction}</button></form></section></div> : null}
+    </div>
+  );
+}
+
+
+function DateField({ value, onChange, placeholder, pickDateLabel, clearDateLabel, required = false }) {
+  const pickerRef = useRef(null);
+  const [draftValue, setDraftValue] = useState(() => formatDateFieldValue(value));
+
+  useEffect(() => {
+    setDraftValue(formatDateFieldValue(value));
+  }, [value]);
+
+  const commitDraftValue = () => {
+    const normalized = normalizeDateFieldValue(draftValue);
+    if (normalized) {
+      setDraftValue(formatDateFieldValue(normalized));
+      onChange(normalized);
+      return;
+    }
+
+    if (!draftValue.trim()) {
+      onChange("");
+      setDraftValue("");
+      return;
+    }
+
+    setDraftValue(formatDateFieldValue(value));
+  };
+
+  const openPicker = () => {
+    if (!pickerRef.current) return;
+    if (typeof pickerRef.current.showPicker === "function") pickerRef.current.showPicker();
+    else pickerRef.current.focus();
+  };
+
+  return (
+    <div className="date-field-row">
+      <input
+        type="text"
+        inputMode="numeric"
+        placeholder={placeholder}
+        value={draftValue}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setDraftValue(nextValue);
+          if (!nextValue.trim()) onChange("");
+          else {
+            const normalized = normalizeDateFieldValue(nextValue);
+            if (normalized) onChange(normalized);
+          }
+        }}
+        onBlur={commitDraftValue}
+        required={required}
+      />
+      <input
+        ref={pickerRef}
+        className="date-picker-native"
+        type="date"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setDraftValue(formatDateFieldValue(event.target.value));
+        }}
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+      <button className="date-picker-btn" type="button" onClick={openPicker} aria-label={pickDateLabel}>
+        {pickDateLabel}
+      </button>
+      {!required && value ? <button className="date-clear-btn" type="button" onClick={() => { onChange(""); setDraftValue(""); }}>{clearDateLabel}</button> : null}
     </div>
   );
 }
@@ -503,9 +574,31 @@ function getStoredThemePreference() {
 }
 
 function getStoredLanguagePreference() {
-  if (typeof window === "undefined") return "th";
+  if (typeof window === "undefined") return "en";
   const storedValue = window.localStorage.getItem("finance-flow-language");
-  return languageOptions.some((option) => option.value === storedValue) ? storedValue : "th";
+  return languageOptions.some((option) => option.value === storedValue) ? storedValue : "en";
+}
+
+
+function formatDateFieldValue(value) {
+  if (!value) return "";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return "";
+  return `${day}/${month}/${year}`;
+}
+
+function normalizeDateFieldValue(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, dayValue, monthValue, yearValue] = match;
+  const day = Number(dayValue);
+  const month = Number(monthValue);
+  const year = Number(yearValue);
+  const candidate = new Date(year, month - 1, day);
+  if (candidate.getFullYear() !== year || candidate.getMonth() !== month - 1 || candidate.getDate() !== day) return null;
+  return `${yearValue}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function getSystemTheme() {

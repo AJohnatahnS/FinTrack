@@ -437,6 +437,34 @@ input::placeholder {
   color: var(--placeholder);
 }
 
+.date-field-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.date-picker-native {
+  position: absolute;
+  inset: auto;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+}
+
+.date-picker-btn,
+.date-clear-btn {
+  min-height: 48px;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: var(--theme-chip-bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
 button {
   border: 0;
   border-radius: 16px;
@@ -963,6 +991,14 @@ button:disabled {
   .split,
   .tools-actions {
     grid-template-columns: 1fr;
+  }
+
+  .date-field-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .date-clear-btn {
+    grid-column: 1 / -1;
   }
 
   .transaction-sub .ghost-btn {
