@@ -16,6 +16,8 @@ const themeOptions = [
   { value: "system", label: "System" },
 ];
 
+const TRANSACTIONS_PER_PAGE = 5;
+
 const defaultTransactionForm = {
   type: "expense",
   description: "",
@@ -52,6 +54,7 @@ export default function App() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
+  const [transactionPage, setTransactionPage] = useState(1);
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
 
   const importInputRef = useRef(null);
@@ -149,12 +152,12 @@ export default function App() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("finance-flow-theme", themePreference);
+    window.localStorage.setItem("fintrack-theme", themePreference);
   }, [themePreference]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("finance-flow-language", language);
+    window.localStorage.setItem("fintrack-language", language);
   }, [language]);
   useEffect(() => {
     setTransactionForm((current) => {
@@ -196,6 +199,16 @@ export default function App() {
       return new Date(b.date) - new Date(a.date);
     });
   }, [deferredTransactions, fromDate, searchTerm, sortBy, toDate, typeFilter, language]);
+
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [fromDate, searchTerm, sortBy, toDate, typeFilter, language]);
+
+  const totalTransactionPages = Math.max(1, Math.ceil(filteredTransactions.length / TRANSACTIONS_PER_PAGE));
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (transactionPage - 1) * TRANSACTIONS_PER_PAGE;
+    return filteredTransactions.slice(startIndex, startIndex + TRANSACTIONS_PER_PAGE);
+  }, [filteredTransactions, transactionPage]);
 
   const summary = useMemo(() => {
     const income = sumAmounts(last30DayTransactions.filter((item) => item.type === "income"));
@@ -358,7 +371,7 @@ export default function App() {
 
   const handleExportJson = () => {
     const payload = JSON.stringify({ exportedAt: new Date().toISOString(), transactions: financeState.transactions, budgets: financeState.budgets }, null, 2);
-    downloadFile(`finance-flow-${getTodayValue()}.json`, payload, "application/json");
+    downloadFile(`fintrack-${getTodayValue()}.json`, payload, "application/json");
     setActionSuccess(copy.jsonExported);
   };
 
@@ -366,7 +379,7 @@ export default function App() {
     const header = ["date", "type", "category", "description", "amount"];
     const rows = filteredTransactions.map((item) => [item.date, item.type, item.category, item.description ?? "", item.amount]);
     const csv = [header, ...rows].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(",")).join("\n");
-    downloadFile(`finance-flow-${getTodayValue()}.csv`, csv, "text/csv;charset=utf-8;");
+    downloadFile(`fintrack-${getTodayValue()}.csv`, csv, "text/csv;charset=utf-8;");
     setActionSuccess(copy.csvExported);
   };
 
@@ -480,7 +493,16 @@ export default function App() {
 
         <section className="panel transaction-panel full-span">
           <div className="panel-head"><h2>{copy.transactionsTitle}</h2><p>{copy.transactionsCopy}</p></div>
-          {filteredTransactions.length === 0 ? <EmptyState message={copy.emptyState} /> : <TransactionList items={filteredTransactions.map((item) => ({ ...item, amountLabel: `${item.type === "expense" ? "-" : "+"}${formatMoney(item.amount)}`, typeLabel: item.type === "expense" ? copy.expense : copy.income, dateLabel: formatDate(item.date), categoryLabel: getCategoryDisplay(item.category) }))} onEdit={handleEditTransaction} onRemove={handleDeleteTransaction} labels={{ noDescription: copy.noDescription, edit: copy.edit, delete: copy.delete }} />}
+          {filteredTransactions.length === 0 ? <EmptyState message={copy.emptyState} /> : <>
+            <TransactionList items={paginatedTransactions.map((item) => ({ ...item, amountLabel: `${item.type === "expense" ? "-" : "+"}${formatMoney(item.amount)}`, typeLabel: item.type === "expense" ? copy.expense : copy.income, dateLabel: formatDate(item.date), categoryLabel: getCategoryDisplay(item.category) }))} onEdit={handleEditTransaction} onRemove={handleDeleteTransaction} labels={{ noDescription: copy.noDescription, edit: copy.edit, delete: copy.delete }} />
+            <div className="transaction-pagination">
+              <span>{copy.transactionPageStatus.replace("{current}", String(transactionPage)).replace("{total}", String(totalTransactionPages))}</span>
+              <div className="transaction-pagination-actions">
+                <button className="close-btn" type="button" onClick={() => setTransactionPage((current) => Math.max(1, current - 1))} disabled={transactionPage === 1}>{copy.previousPage}</button>
+                <button className="close-btn" type="button" onClick={() => setTransactionPage((current) => Math.min(totalTransactionPages, current + 1))} disabled={transactionPage === totalTransactionPages}>{copy.nextPage}</button>
+              </div>
+            </div>
+          </>}
         </section>
       </main>
 
@@ -567,13 +589,13 @@ function DateField({ value, onChange, placeholder, pickDateLabel, clearDateLabel
 
 function getStoredThemePreference() {
   if (typeof window === "undefined") return "system";
-  const storedValue = window.localStorage.getItem("finance-flow-theme");
+  const storedValue = window.localStorage.getItem("fintrack-theme");
   return themeOptions.some((option) => option.value === storedValue) ? storedValue : "system";
 }
 
 function getStoredLanguagePreference() {
   if (typeof window === "undefined") return "en";
-  const storedValue = window.localStorage.getItem("finance-flow-language");
+  const storedValue = window.localStorage.getItem("fintrack-language");
   return languageOptions.some((option) => option.value === storedValue) ? storedValue : "en";
 }
 

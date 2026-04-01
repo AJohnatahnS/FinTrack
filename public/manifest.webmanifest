@@ -1,6 +1,6 @@
 ﻿{
-  "name": "Finance Flow",
-  "short_name": "FinanceFlow",
+  "name": "FinTrack",
+  "short_name": "FinTrack",
   "description": "เว็บแอปสำหรับจัดการการเงินส่วนตัว ติดตามรายรับรายจ่ายและงบประมาณรายเดือน",
   "start_url": "/",
   "display": "standalone",

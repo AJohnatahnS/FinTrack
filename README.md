@@ -1,4 +1,4 @@
-﻿# Finance Flow
+﻿# FinTrack
 
 เว็บแอปจัดการการเงินส่วนตัวบน React + Vite ที่ซิงค์ข้อมูลข้ามมือถือและคอมผ่าน Supabase
 

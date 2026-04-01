@@ -1104,6 +1104,23 @@ button:disabled {
   margin-left: auto;
 }
 
+.transaction-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.transaction-pagination span {
+  color: var(--muted);
+}
+
+.transaction-pagination-actions {
+  display: flex;
+  gap: 10px;
+}
+
 .transaction-edit-btn {
   min-height: 42px;
 }
@@ -1116,6 +1133,19 @@ button:disabled {
 
   .transaction-actions .transaction-edit-btn,
   .transaction-actions .ghost-btn {
+    width: 100%;
+  }
+
+  .transaction-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transaction-pagination-actions {
+    width: 100%;
+  }
+
+  .transaction-pagination-actions .close-btn {
     width: 100%;
   }
 }
