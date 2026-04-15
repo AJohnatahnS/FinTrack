@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = "fintrack-v3";
+﻿const CACHE_NAME = "fintrack-v4";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-512-maskable.png", "/icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (event) => {
@@ -17,6 +17,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+  if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
