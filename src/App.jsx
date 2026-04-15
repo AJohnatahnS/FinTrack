@@ -81,6 +81,7 @@ export default function App() {
     deleteTransaction,
     saveBudget,
     replaceFinanceData,
+    refreshFinance,
   } = useSupabaseFinance(user);
 
   useEffect(() => {
@@ -397,6 +398,17 @@ export default function App() {
     event.target.value = "";
   };
 
+  const handleRefresh = async () => {
+    setActionError("");
+    setActionSuccess("");
+    const result = await refreshFinance();
+    if (result.error) {
+      setActionError(result.error.message ?? copy.refreshError);
+      return;
+    }
+    setActionSuccess(copy.refreshSuccess);
+  };
+
   const themeSwitcher = (
     <div className="theme-switcher" role="group" aria-label="Theme mode">
       {themeOptions.map((option) => (
@@ -445,7 +457,7 @@ export default function App() {
           <button className="logout-btn" type="button" onClick={handleLogout}>{copy.logout}</button>
         </div>
       </header>
-      <div className="panel notice-panel sync-panel"><strong>{isOnline ? (isSyncing ? copy.syncing : copy.connected) : copy.offline}</strong><span>{syncLabel}</span></div>
+      <div className="panel notice-panel sync-panel"><strong>{isOnline ? (isSyncing ? copy.syncing : copy.connected) : copy.offline}</strong><div className="sync-actions"><span>{syncLabel}</span><button className="close-btn sync-refresh-btn" type="button" onClick={handleRefresh} disabled={isSyncing || isLoading}>{isSyncing ? copy.refreshing : copy.refresh}</button></div></div>
       {error || actionError ? <div className="panel notice-panel error">{actionError || error}</div> : null}
       {actionSuccess ? <div className="panel notice-panel success">{actionSuccess}</div> : null}
       {isLoading ? <div className="panel notice-panel">{copy.loadingData}</div> : null}

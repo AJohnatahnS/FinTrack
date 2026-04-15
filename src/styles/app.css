@@ -318,9 +318,19 @@ label span {
   font-family: "Space Grotesk", sans-serif;
 }
 
+.sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .sync-panel span {
   color: var(--muted);
   text-align: right;
+}
+
+.sync-refresh-btn {
+  min-width: 108px;
 }
 
 .full-span,
@@ -962,6 +972,12 @@ button:disabled {
   .panel-head-metric {
     justify-items: start;
     text-align: left;
+  }
+
+  .sync-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .sync-panel span {

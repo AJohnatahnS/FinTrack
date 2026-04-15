@@ -37,6 +37,42 @@ export function useSupabaseFinance(user) {
   const [lastSyncedAt, setLastSyncedAt] = useState("");
   const [error, setError] = useState("");
 
+  const refreshFinance = async (options = {}) => {
+    const { showLoading = false } = options;
+
+    if (!user || !supabase) {
+      setFinanceState({ budgets: {}, transactions: [] });
+      setIsLoading(false);
+      setIsSyncing(false);
+      setLastSyncedAt("");
+      return { error: null };
+    }
+
+    if (showLoading) setIsLoading(true);
+    setIsSyncing(true);
+    setError("");
+
+    const { transactionsResult, budgetsResult } = await fetchFinanceSnapshot();
+
+    if (transactionsResult.error || budgetsResult.error) {
+      setError(transactionsResult.error?.message ?? budgetsResult.error?.message ?? "โหลดข้อมูลจาก Supabase ไม่สำเร็จ");
+      setFinanceState(structuredClone(sampleData));
+      setIsLoading(false);
+      setIsSyncing(false);
+      return { error: transactionsResult.error ?? budgetsResult.error };
+    }
+
+    setFinanceState({
+      budgets: mapBudgets(budgetsResult.data ?? []),
+      transactions: mapTransactions(transactionsResult.data ?? []),
+    });
+    setLastSyncedAt(new Date().toISOString());
+    setIsLoading(false);
+    setIsSyncing(false);
+
+    return { error: null };
+  };
+
   useEffect(() => {
     let active = true;
 
@@ -48,33 +84,9 @@ export function useSupabaseFinance(user) {
       return undefined;
     }
 
-    async function loadFinance() {
-      setIsLoading(true);
-      setIsSyncing(true);
-      setError("");
-
-      const { transactionsResult, budgetsResult } = await fetchFinanceSnapshot();
-
-      if (!active) {
-        return;
-      }
-
-      if (transactionsResult.error || budgetsResult.error) {
-        setError(transactionsResult.error?.message ?? budgetsResult.error?.message ?? "โหลดข้อมูลจาก Supabase ไม่สำเร็จ");
-        setFinanceState(structuredClone(sampleData));
-      } else {
-        setFinanceState({
-          budgets: mapBudgets(budgetsResult.data ?? []),
-          transactions: mapTransactions(transactionsResult.data ?? []),
-        });
-        setLastSyncedAt(new Date().toISOString());
-      }
-
-      setIsLoading(false);
-      setIsSyncing(false);
-    }
-
-    loadFinance();
+    refreshFinance({ showLoading: true }).then(() => {
+      if (!active) return;
+    });
 
     return () => {
       active = false;
@@ -266,20 +278,7 @@ export function useSupabaseFinance(user) {
       }
     }
 
-    const { transactionsResult, budgetsResult } = await fetchFinanceSnapshot();
-    setIsSyncing(false);
-
-    if (transactionsResult.error || budgetsResult.error) {
-      return { error: transactionsResult.error ?? budgetsResult.error };
-    }
-
-    setFinanceState({
-      budgets: mapBudgets(budgetsResult.data ?? []),
-      transactions: mapTransactions(transactionsResult.data ?? []),
-    });
-    setLastSyncedAt(new Date().toISOString());
-
-    return { error: null };
+    return refreshFinance();
   };
 
   return {
@@ -293,5 +292,6 @@ export function useSupabaseFinance(user) {
     deleteTransaction,
     saveBudget,
     replaceFinanceData,
+    refreshFinance,
   };
 }
