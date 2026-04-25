@@ -215,10 +215,11 @@ export default function App() {
     const income = sumAmounts(last30DayTransactions.filter((item) => item.type === "income"));
     const expense = sumAmounts(last30DayTransactions.filter((item) => item.type === "expense"));
     const net = income - expense;
+    const totalMoney = sumAmounts(deferredTransactions.filter((item) => item.type === "income")) - sumAmounts(deferredTransactions.filter((item) => item.type === "expense"));
     const budgetTotal = Object.values(financeState.budgets).reduce((sum, value) => sum + value, 0);
     const budgetUsedPercent = budgetTotal > 0 ? Math.min((expense / budgetTotal) * 100, 999) : 0;
-    return { income, expense, net, budgetUsedPercent, budgetTotal };
-  }, [financeState.budgets, last30DayTransactions]);
+    return { income, expense, net, totalMoney, budgetUsedPercent, budgetTotal };
+  }, [deferredTransactions, financeState.budgets, last30DayTransactions]);
 
   const categorySpending = useMemo(() => last30DayTransactions.filter((item) => item.type === "expense").reduce((acc, transaction) => {
     acc[transaction.category] = (acc[transaction.category] ?? 0) + transaction.amount;
@@ -464,6 +465,7 @@ export default function App() {
 
       <main className="layout compact-layout">
         <section className="summary-grid">
+          <SummaryCard tone="balance" label={copy.totalMoney} value={formatMoney(summary.totalMoney)} />
           <SummaryCard tone="income" label={copy.incomeThisMonth} value={formatMoney(summary.income)} />
           <SummaryCard tone="expense" label={copy.expenseThisMonth} value={formatMoney(summary.expense)} />
           <SummaryCard tone="balance" label={copy.netThisMonth} value={formatMoney(summary.net)} />
