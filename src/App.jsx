@@ -454,7 +454,7 @@ export default function App() {
         <div className="hero-side">
           {themeSwitcher}
           {languageSwitcher}
-          <div className="hero-stat"><span>{copy.last30Days}</span><strong>{formatMoney(summary.net)}</strong><small>{user.email}</small></div>
+          <div className="hero-stat"><span>{copy.totalMoney}</span><strong>{formatMoney(summary.totalMoney)}</strong><small>{user.email}</small></div>
           <button className="logout-btn" type="button" onClick={handleLogout}>{copy.logout}</button>
         </div>
       </header>
@@ -465,7 +465,6 @@ export default function App() {
 
       <main className="layout compact-layout">
         <section className="summary-grid">
-          <SummaryCard tone="balance" label={copy.totalMoney} value={formatMoney(summary.totalMoney)} />
           <SummaryCard tone="income" label={copy.incomeThisMonth} value={formatMoney(summary.income)} />
           <SummaryCard tone="expense" label={copy.expenseThisMonth} value={formatMoney(summary.expense)} />
           <SummaryCard tone="balance" label={copy.netThisMonth} value={formatMoney(summary.net)} />
